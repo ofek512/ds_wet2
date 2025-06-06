@@ -56,6 +56,7 @@ const int TABLE_OF_PRIMES[] = {
 template<class T>
 class Hash {
 private:
+
     int curr_size;
     int insert_counter; // counts the number of insertions
     int prime_index; // saves the current index in TABLE_OF_PRIMES
@@ -67,6 +68,7 @@ private:
     StatusType rehash();
     hashingResult<T> hash_insert(const T &data); /// V
     hashingResult<T> hash_search(const T &data); /// V
+
 public:
     StatusType insert(const T &data);
     StatusType remove(const T &data);
@@ -83,6 +85,10 @@ public:
     ~Hash() {
         delete[] table;
     }
+
+    // Copy constructor and assignment operator for proper RAII
+    Hash(const Hash &other) = delete;
+    Hash &operator=(const Hash &other) = delete;
 
 };
 
@@ -101,17 +107,26 @@ hashingResult<T> Hash<T>::hash_insert(const T &data) {
     // find index, make sure there is no collision, if there is, increment k until there is no collision.
     int key = data;
     int k = 0;
-    while (1) {
+    int attempts = 0;
+    while (attempts < max_size) {
         int index =
                 (key % max_size + k * (1 + (key % (max_size - 5)))) % max_size;
+
         if (!table[index]->data || table[index]->is_deleted) {
             // found an empty slot or a deleted slot
             return {index, StatusType::SUCCESS};
         }
+
+        // check if element already exists and is not deleted
+        if (table[index]->data && *(table[index]->data) == data &&
+            !table[index]->is_deleted) {
+            return {-1, StatusType::FAILURE}; // Element already exists
+        }
+
+        attempts++;
         k++;
     }
-
-
+    return {-1, StatusType::FAILURE}; // safety net for debugs
 }
 
 template<class T>
@@ -129,7 +144,9 @@ hashingResult<T> Hash<T>::hash_search(const T &data) {
     // find index, make sure there is no collision, if there is, increment k until there is no collision.
     int key = data;
     int k = 0;
-    while (1) {
+    int attempts = 0;
+
+    while (attempts < max_size) {
         int index =
                 (key % max_size + k * (1 + (key % (max_size - 5)))) % max_size;
 
@@ -145,6 +162,178 @@ hashingResult<T> Hash<T>::hash_search(const T &data) {
         }
 
         k++;
+        attempts++;
     }
 }
 
+template<class T>
+StatusType Hash<T>::insert(const T &data) {
+
+    /// check if we need to enlarge the table
+    if (curr_size /* + delete_counter maybe? */ >= max_size * load_factor) {
+
+        StatusType status = enlargeTable();
+        if (status != StatusType::SUCCESS) {
+            return status; /// Failed to enlarge the table for debugs
+        }
+
+    }
+
+    /// get the index to insert the data
+    hashingResult<T> result = hash_insert(data);
+    if (result.status != StatusType::SUCCESS) {
+        return result.status; // Failure or already exists
+    }
+
+    /// insert the data
+
+    //if the slot is empty, insert normally
+    if (!table[result.index]->data) {
+        table[result.index]->data = make_shared<T>(data);
+        table[result.index]->is_deleted = false; // mark as not deleted for safety
+        curr_size++; // increment the current size
+        insert_counter++; // increment the insert counter
+    } else {
+        // reuse the existing slot
+        // todo make sure the data is deleted
+        table[result.index]->data = make_shared<T>(data);
+        table[result.index]->is_deleted = false; // mark as not deleted
+        delete_counter--; // decrement delete counter if we reused a deleted slot
+    }
+
+    return StatusType::SUCCESS;
+
+}
+
+template<class T>
+StatusType Hash<T>::remove(const T &data) {
+
+    /// check if we need to rehash the table
+    if ((double)delete_counter / max_size >= 0.5) {
+        rehash();
+    }
+
+    /// check if we need to shrink the table
+    if (max_size > MIN_SIZE && (double)curr_size <= max_size * 0.25) {
+        StatusType status = shrinkTable();
+    }
+
+    hashingResult<T> result = hash_search(data);
+    if (result.status != StatusType::SUCCESS) {
+        return result.status; // Failure or not found
+    }
+
+    table[result.index]->is_deleted = true; // mark as deleted
+    delete_counter++; // increment the delete counter
+    curr_size--; // decrement the current size
+
+    return StatusType::SUCCESS;
+}
+
+template<class T>
+StatusType Hash<T>::enlargeTable() {
+    if (prime_index >= sizeof(TABLE_OF_PRIMES) / sizeof(int)) {
+        return StatusType::FAILURE; // No more primes available, hashem yishmor
+    }
+
+    int new_max_size = TABLE_OF_PRIMES[prime_index + 1];
+
+    /// create a new table
+    shared_ptr<Node<T>> *new_table = new shared_ptr<Node<T>>[new_max_size];
+    for (int i = 0; i < new_max_size; ++i) {
+        new_table[i] = make_shared<Node<T>>();
+    }
+
+    /// save old table
+    shared_ptr<Node<T>> *old_table = table;
+    int old_max_size = max_size;
+
+    /// update the table and max size
+    table = new_table;
+    max_size = new_max_size;
+
+    /// reset counters for rehashing and resizings
+    curr_size = 0;
+    delete_counter = 0;
+    insert_counter = 0;
+
+    /// rehash the old table
+    for (int i = 0; i < old_max_size; i++) {
+        if (old_table[i]->data && !old_table[i]->is_deleted) {
+            insert(*(old_table[i]->data));
+        }
+    }
+
+    /// delete the old table
+    delete[] old_table;
+    return StatusType::SUCCESS;
+
+}
+
+template<class T>
+StatusType Hash<T>::shrinkTable() {
+    if (max_size == MIN_SIZE) {
+        return StatusType::FAILURE; // Cannot shrink below MIN_SIZE
+    }
+
+    int new_max_size = TABLE_OF_PRIMES[prime_index - 1];
+
+    /// create a new table
+    shared_ptr<Node<T>> *new_table = new shared_ptr<Node<T>>[new_max_size];
+    for (int i = 0; i < new_max_size; ++i) {
+        new_table[i] = make_shared<Node<T>>();
+    }
+
+    /// save old table
+    shared_ptr<Node<T>> *old_table = table;
+    int old_max_size = max_size;
+
+    /// update table and parameters
+    table = new_table;
+    max_size = new_max_size;
+
+    /// reset counters for rehashing
+    curr_size = 0;
+    delete_counter = 0;
+    insert_counter = 0;
+    for (int i = 0; i < old_max_size; i++) {
+        if (old_table[i]->data && !old_table[i]->is_deleted) {
+            insert(*(old_table[i]->data));
+        }
+    }
+
+    delete[] old_table; // delete the old table
+    return StatusType::SUCCESS;
+
+}
+
+template<class T>
+StatusType Hash<T>::rehash() {
+    /// create a new table of same size
+    shared_ptr<Node<T>> *new_table = new shared_ptr<Node<T>>[max_size];
+    for (int i = 0; i < max_size; ++i) {
+        new_table[i] = make_shared<Node<T>>();
+    }
+
+    /// save old table
+    shared_ptr<Node<T>> *old_table = table;
+
+    /// update the table
+    table = new_table;
+
+    /// reset counters for rehashing
+    curr_size = 0;
+    delete_counter = 0;
+    insert_counter = 0;
+
+    /// rehash
+    for (int i = 0; i < max_size; ++i) {
+        if (old_table[i]->data && !old_table[i]->is_deleted) {
+            insert(*(old_table[i]->data));
+        }
+    }
+
+    delete[] old_table; // delete the old table
+    return StatusType::SUCCESS;
+
+}

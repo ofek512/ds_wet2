@@ -62,15 +62,17 @@ private:
     int max_size;
     int delete_counter;
     shared_ptr<Node<T>> *table;
-    StatusType enlargeTable();
-    StatusType shrinkTable();
+    StatusType resizeTable(); /// adjust the table size according to the current load factor
+    StatusType enlargeTable(); /// enlarge table in the case of load factor > 0.7
+    StatusType shrinkTable(); /// shrink table in the case of load factor < 0.3
     StatusType rehash();
     hashingResult<T> hash_insert(const T &data); /// V
     hashingResult<T> hash_search(const T &data); /// V
 public:
     StatusType insert(const T &data);
-    StatusType remove(const T &data);
-    shared_ptr<T> member(int key) const;
+    StatusType remove(const T &data); /// V
+    shared_ptr<T> member(int key) const; /// V
+    int getHashKey(const T &data) const; /// Helper method to extract hash key from data
 
     Hash() : curr_size(0), insert_counter(0), prime_index(0),
              max_size(MIN_SIZE), delete_counter(0) {
@@ -82,9 +84,103 @@ public:
 
     ~Hash() {
         delete[] table;
+        table = nullptr;
     }
 
 };
+
+template<class T>
+StatusType Hash<T>::resizeTable() {
+    // check if we need to enlarge or shrink the table
+    if (insert_counter > load_factor * max_size) {
+        return enlargeTable();
+    } else if (curr_size < max_size * 0.3 && max_size > MIN_SIZE) {
+        return shrinkTable();
+    }
+    return StatusType::SUCCESS; // no resizing needed
+}
+
+template<class T>
+StatusType Hash<T>::enlargeTable() {
+    shared_ptr<Node<T>> *newTable = new shared_ptr<Node<T>>[TABLE_OF_PRIMES[prime_index + 1]];
+    if (!newTable) {
+        return StatusType::ALLOCATION_ERROR; // memory allocation failed
+    }
+    else{
+        // initialize new table
+        for (int i = 0; i < TABLE_OF_PRIMES[prime_index + 1]; i++) {
+            newTable[i] = make_shared<Node<T>>();
+        }
+        int newInsertCounter = 0; // reset the insert counter for the new table
+        //pass on old table contents
+        for(int i = 0; i < max_size; i++){
+            if(table[i]->data && !table[i]->is_deleted) {
+                /// get hashed index of the data to add to the new table
+                hashingResult<T> result = hash_insert(*(table[i]->data));
+                /// check success of insertion before using the index
+                if (result.status == StatusType::FAILURE) {
+                    delete[] newTable; // free memory on failure
+                    return StatusType::ALLOCATION_ERROR; // memory allocation failed
+                } else{
+                    // insert the data into the new table
+                    newTable[result.index]->data = table[i]->data; // move the data to the new table
+                    newTable[result.index]->is_deleted = false; // mark as "not deleted"
+                    newInsertCounter++; // increment the insert counter for the new table
+                }
+            }
+        }
+        delete[] table;
+        this->table = newTable; // update the table pointer
+        prime_index = prime_index + 1; // update the prime index
+        max_size = TABLE_OF_PRIMES[prime_index]; // update the max size
+        curr_size = newInsertCounter; // update the current size
+        insert_counter = newInsertCounter; // update the insert counter
+        return StatusType::SUCCESS;
+    }
+}
+
+template<class T>
+StatusType Hash<T>::shrinkTable() {
+    // check if we can shrink the table
+    if(prime_index-1 < 0) {
+        return StatusType::FAILURE; // cannot shrink below MIN_SIZE
+    }
+    shared_ptr<Node<T>> *newTable = new shared_ptr<Node<T>>[TABLE_OF_PRIMES[prime_index - 1]];
+    if (!newTable) {
+        return StatusType::ALLOCATION_ERROR; // memory allocation failed
+    }
+    else{
+        // initialize new table
+        for (int i = 0; i < TABLE_OF_PRIMES[prime_index - 1]; i++) {
+            newTable[i] = make_shared<Node<T>>();
+        }
+        int newInsertCounter = 0; // reset the insert counter for the new table
+        //pass on old table contents
+        for(int i = 0; i < max_size; i++){
+            if(table[i]->data && !table[i]->is_deleted) {
+                /// get hashed index of the data to add to the new table
+                hashingResult<T> result = hash_insert(*(table[i]->data));
+                /// check success of insertion before using the index
+                if (result.status == StatusType::FAILURE) {
+                    delete[] newTable; // free memory on failure
+                    return StatusType::ALLOCATION_ERROR; // memory allocation failed
+                } else{
+                    // insert the data into the new table
+                    newTable[result.index]->data = table[i]->data; // move the data to the new table
+                    newTable[result.index]->is_deleted = false; // mark as "not deleted"
+                    newInsertCounter++; // increment the insert counter for the new table
+                }
+            }
+        }
+        delete[] table;
+        this->table = newTable; // update the table pointer
+        prime_index = prime_index - 1; // update the prime index
+        max_size = TABLE_OF_PRIMES[prime_index]; // update the max size
+        curr_size = newInsertCounter; // update the current size
+        insert_counter = newInsertCounter; // update the insert counter
+        return StatusType::SUCCESS;
+    }
+}
 
 template<class T>
 hashingResult<T> Hash<T>::hash_insert(const T &data) {
@@ -99,7 +195,7 @@ hashingResult<T> Hash<T>::hash_insert(const T &data) {
     }
 
     // find index, make sure there is no collision, if there is, increment k until there is no collision.
-    int key = data;
+    int key = getHashKey(data);
     int k = 0;
     while (1) {
         int index =
@@ -127,7 +223,7 @@ hashingResult<T> Hash<T>::hash_search(const T &data) {
     }
 
     // find index, make sure there is no collision, if there is, increment k until there is no collision.
-    int key = data;
+    int key = getHashKey(data);
     int k = 0;
     while (1) {
         int index =
@@ -148,3 +244,68 @@ hashingResult<T> Hash<T>::hash_search(const T &data) {
     }
 }
 
+template<class T>
+shared_ptr<T> Hash<T>::member(int key) const {
+    if(key < 0 || key >= max_size) {
+        return nullptr; // invalid key
+    }
+    hashingResult<T> result = hash_search(key);
+    if(result.status == StatusType::FAILURE) {
+        return nullptr; // element not found
+    } else {
+        return table[result.index]->data; // return the data
+    }
+}
+
+template<class T>
+StatusType Hash<T>::remove(const T &data){
+    // check if we need to resize the table
+    StatusType resizeStatus = resizeTable();
+    if(resizeStatus != StatusType::SUCCESS) {
+        return resizeStatus; // return the status of resizing
+    }
+    if(!data) {
+        return StatusType::FAILURE; // invalid data
+    } else{
+        hashingResult<T> result = hash_search(data);
+        if(result.status == StatusType::FAILURE) {
+            return StatusType::FAILURE;
+        }
+        else{
+            int index = result.index;
+            table[index]->is_deleted = true;// mark as deleted
+            curr_size--;
+            return StatusType::SUCCESS;
+        }
+    }
+}
+
+template<class T>
+StatusType Hash<T>::insert(const T &data) {
+    // check if we need to resize the table
+    StatusType resizeStatus = resizeTable();
+    if(resizeStatus != StatusType::SUCCESS) {
+        return resizeStatus; // return the status of resizing
+    }
+    hashingResult<T> result = hash_insert(data);
+    if(result.status != StatusType::FAILURE){
+        int index = result.index;
+        table[index]->is_deleted = false; // mark as not deleted
+        table[index]->data = make_shared<T>(data); // store the data
+        insert_counter++;
+        curr_size++;
+        return StatusType::SUCCESS;
+    }
+    return StatusType::FAILURE;
+}
+
+// Helper method to extract hash key from data
+template<class T>
+int Hash<T>::getHashKey(const T &data) const {
+    // Use static_assert to ensure T can be converted to int at compile time
+    static_assert(
+            std::is_convertible<T, int>::value || std::is_integral<T>::value,
+            "Type T must be convertible to int for hashing");
+
+    return static_cast<int>(data);
+}

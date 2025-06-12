@@ -14,20 +14,23 @@
 #define DSPOTIFY25SPRING_WET2_H_
 
 #include "wet2util.h"
+#include "Song.h" // song.h includes genres already.
+#include "Hash.h"
 
 class DSpotify {
+    // This class will act as a union find of groups(genres) of songs.
 private:
-    //
-    // Here you may add anything you want
-    //
-    
+    // Hash table for genres and songs to allow fast access to the upside down tree of songs.
+    Hash<shared_ptr<Genre>> genres;
+    Hash<shared_ptr<Song>> songs;
+
 public:
     // <DO-NOT-MODIFY> {
-    DSpotify();
+    DSpotify(); /// V
 
-    virtual ~DSpotify();
+    virtual ~DSpotify(); /// V
 
-    StatusType addGenre(int genreId);
+    StatusType addGenre(int genreId); /// V
 
     StatusType addSong(int songId, int genreId);
 
@@ -39,6 +42,8 @@ public:
 
     output_t<int> getNumberOfGenreChanges(int songId);
     // } </DO-NOT-MODIFY>
+
+    shared_ptr<Song> findSet(shared_ptr<Song> song)
 };
 
 #endif // DSPOTIFY25SPRING_WET2_H_

@@ -112,11 +112,10 @@ public:
 template<class T>
 int Hash<T>::getHashKey(const T &data) const {
     // Use static_assert to ensure T can be converted to int at compile time
-    static_assert(
-            std::is_convertible<T, int>::value || std::is_integral<T>::value,
-            "Type T must be convertible to int for hashing");
+//    static_assert(std::is_convertible<T, int>::value || std::is_integral<T>::value,
+//            "Type T must be convertible to int for hashing");
 
-    return static_cast<int>(data);
+    return (int)*data; /// BIG CHECK
 }
 
 template<class T>
@@ -193,7 +192,8 @@ hashingResult<T> Hash<T>::hash_search(const T &data) {
 template<class T>
 StatusType Hash<T>::insert(const T &data) {
     // Check if we need to enlarge the table
-    if (static_cast<double>(curr_size + delete_counter) / max_size >= DEFAULT_LOAD_FACTOR) {
+    if (static_cast<double>(curr_size + delete_counter) / max_size >=
+        DEFAULT_LOAD_FACTOR) {
         StatusType status = enlargeTable();
         if (status != StatusType::SUCCESS) {
             return status;

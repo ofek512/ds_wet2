@@ -111,11 +111,15 @@ public:
 // Helper method to extract hash key from data
 template<class T>
 int Hash<T>::getHashKey(const T &data) const {
-    // Use static_assert to ensure T can be converted to int at compile time
-//    static_assert(std::is_convertible<T, int>::value || std::is_integral<T>::value,
-//            "Type T must be convertible to int for hashing");
+    // Re-enable type safety check
+    static_assert(std::is_convertible<decltype(*std::declval<T>()), int>::value, "Type T must be dereferenceable to a type convertible to int");
 
-    return (int)*data; /// BIG CHECK
+    // Safety check before dereferencing
+    if (!data) {
+        throw std::invalid_argument("Cannot hash null data");
+    }
+
+    return static_cast<int>(*data);
 }
 
 template<class T>
@@ -272,10 +276,11 @@ shared_ptr<T> Hash<T>::member(int key) const {
             continue;
         }
 
-        // Try to convert data to int for comparison
-        int dataKey = getHashKey(*(table[index]->data));
-        if (dataKey == key) {
-            return table[index]->data; // Found the element
+        if (table[index]->data) {
+            int dataKey = getHashKey(*(table[index]->data));
+            if (dataKey == key) {
+                return table[index]->data;
+            }
         }
 
         k++;

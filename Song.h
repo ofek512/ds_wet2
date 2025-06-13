@@ -62,6 +62,14 @@ public:
         }
     }
 
+    void addGenreChanges(int changes) {
+        genreChanges += changes;
+    }
+
+    void setGenreChanges(int changes) {
+        genreChanges = changes;
+    }
+
     // cast to int
     operator int() const {
         return song_id;

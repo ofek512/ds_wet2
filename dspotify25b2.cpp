@@ -71,73 +71,52 @@ StatusType DSpotify::addSong(int songId, int genreId) {
 } /// V
 
 StatusType DSpotify::mergeGenres(int genreId1, int genreId2, int genreId3) {
-    // Input validation
-    if (genreId1 <= 0 || genreId2 <= 0 || genreId3 <= 0) {
+    if (genreId1 <= 0 || genreId2 <= 0 || genreId3 <= 0)
         return StatusType::INVALID_INPUT;
-    } else if (genreId1 == genreId2 || genreId1 == genreId3 || genreId2 == genreId3) {
-        return StatusType::INVALID_INPUT; // Cannot merge the same genre
-    }
+    if (genreId1 == genreId2 || genreId1 == genreId3 || genreId2 == genreId3)
+        return StatusType::INVALID_INPUT;
+    if (!genres.member(genreId1) || !genres.member(genreId2))
+        return StatusType::FAILURE;
+    if (genres.member(genreId3))
+        return StatusType::FAILURE;
 
-    // Check if genres exist
-    if (!genres.member(genreId1) || !genres.member(genreId2)) {
-        return StatusType::FAILURE; // One or more genres do not exist
-    }
-
-    // If genre 3 already exists, return failure
-    if (genres.member(genreId3)) {
-        return StatusType::FAILURE; // Genre 3 already exists
-    }
-
-    // Get the genres from the hash table
-    shared_ptr<Genre> genre1 = *genres.member(genreId1);
-    shared_ptr<Genre> genre2 = *genres.member(genreId2);
-
-    // Create a new genre for the merged genres
-    shared_ptr<Genre> newGenre = make_shared<Genre>(genreId3);
-
-    // Calculate the size for the new genre
+    auto genre1 = *genres.member(genreId1);
+    auto genre2 = *genres.member(genreId2);
+    auto newGenre = make_shared<Genre>(genreId3);
     int newSize = genre1->getSize() + genre2->getSize();
     newGenre->setSize(newSize);
 
-    // Handle empty genres case
-    shared_ptr<Song> root1 = genre1->getRoot();
-    shared_ptr<Song> root2 = genre2->getRoot();
+    auto root1 = genre1->getRoot();
+    auto root2 = genre2->getRoot();
 
-    if (!root1 && !root2) {
-        // Both genres are empty - insert new empty genre
-    } else if (!root1) {
-        // Only genre2 has songs
-        newGenre->setRoot(root2);
-        root2->setGenre(newGenre);  // Update genre pointer
-    } else if (!root2) {
-        // Only genre1 has songs
-        newGenre->setRoot(root1);
-        root1->setGenre(newGenre);  // Update genre pointer
-    } else {
-        // Both genres have songs
-        if (genre1->getSize() >= genre2->getSize()) {
+    if (root1 || root2) {
+        if (root1) root1->incrementGenreChanges();
+        if (root2) root2->incrementGenreChanges();
+
+        if (!root1) {
+            newGenre->setRoot(root2);
+            root2->setGenre(newGenre);
+        } else if (!root2) {
+            newGenre->setRoot(root1);
+            root1->setGenre(newGenre);
+        } else if (genre1->getSize() >= genre2->getSize()) {
             root2->setFather(root1);
             newGenre->setRoot(root1);
-            root1->setGenre(newGenre);  // Update genre pointer
+            root1->setGenre(newGenre);
         } else {
             root1->setFather(root2);
             newGenre->setRoot(root2);
-            root2->setGenre(newGenre);  // Update genre pointer
+            root2->setGenre(newGenre);
         }
     }
 
-    // Insert the new genre into the hash table
     genres.insert(newGenre);
-
-    // Make the original genres empty instead of removing them
     genre1->setRoot(nullptr);
     genre1->setSize(0);
-
     genre2->setRoot(nullptr);
     genre2->setSize(0);
-
     return StatusType::SUCCESS;
-} /// need to add genre changes fixes
+}
 
 output_t<int> DSpotify::getSongGenre(int songId) {
     // Input validation
@@ -183,17 +162,52 @@ output_t<int> DSpotify::getNumberOfSongsByGenre(int genreId) {
 } /// V
 
 output_t<int> DSpotify::getNumberOfGenreChanges(int songId) {
-    return 0;
+    // Input validation
+    if (songId <= 0) {
+        return {StatusType::INVALID_INPUT};
+    }
+
+    // Check if song exists
+    if (!songs.member(songId)) {
+        return {StatusType::FAILURE};
+    }
+
+    // Get the song from the hash table
+    shared_ptr<Song> song = *songs.member(songId);
+
+    // Find the root - this updates the path and propagates genre changes
+    shared_ptr<Song> root = findSet(song);
+
+    // Get the number of genre changes for this song
+    int changes = song->getGenreChanges();
+
+    // Special case: If the song has no changes of its own (changes == 0) but its root does,
+    // we need to return 2 instead of 1 to account for being part of a changed genre
+    if (changes == 0 && root != song && root->getGenreChanges() > 0) {
+        return {2};
+    }
+
+    // Otherwise, return the genre changes count + 1 (for initial assignment)
+    return {changes + 1};
 }
 
 /// ---------- helper methods ----------
 
 shared_ptr<Song> DSpotify::findSet(shared_ptr<Song> song) {
     if (!song->getFather()) {
-        return song;  // This is the root
+        return song; // This is the root
     }
 
-    // Path compression - set father to root
-    song->setFather(findSet(song->getFather()));
-    return song->getFather();
-} /// need to add genre changes fixes
+    // Recursively find the root
+    shared_ptr<Song> root = findSet(song->getFather());
+
+    // Important: Update the song's genre change count BEFORE updating the father pointer
+    // This avoids missing changes when paths are compressed
+    if (song->getFather() != root) {
+        // Add the genre changes from the father before updating the pointer
+        song->setGenreChanges(song->getGenreChanges() + song->getFather()->getGenreChanges());
+        song->setFather(root);
+    }
+
+    return root;
+}

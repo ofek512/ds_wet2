@@ -59,6 +59,7 @@ StatusType DSpotify::addSong(int songId, int genreId) {
     // If the genre has no root, set the new song as the root
     if (!rootGenreSong) {
         genre->setRoot(newSong);
+        newSong->setGenre(genre); // Update genre pointer
     } else {
         // Otherwise, set the new song's father to the root of the genre
         newSong->setFather(rootGenreSong);
@@ -136,17 +137,17 @@ StatusType DSpotify::mergeGenres(int genreId1, int genreId2, int genreId3) {
     genre2->setSize(0);
 
     return StatusType::SUCCESS;
-}
+} /// need to add genre changes fixes
 
 output_t<int> DSpotify::getSongGenre(int songId) {
     // Input validation
     if (songId <= 0) {
-        return output_t<int>(StatusType::INVALID_INPUT);
+        return {StatusType::INVALID_INPUT};
     }
 
     // Check if song exists
     if (!songs.member(songId)) {
-        return output_t<int>(StatusType::FAILURE); // Song does not exist
+        return {StatusType::FAILURE}; // Song does not exist
     }
 
     // Get the song from the hash table
@@ -158,7 +159,7 @@ output_t<int> DSpotify::getSongGenre(int songId) {
     // Get the genre from the root song
     shared_ptr<Genre> genre = root->getGenre();
     if (!genre) {
-        return output_t<int>(StatusType::FAILURE); // Root song has no genre
+        return {StatusType::FAILURE}; // Root song has no genre
     }
 
     return output_t<int>(genre->getGenreId());
@@ -195,4 +196,4 @@ shared_ptr<Song> DSpotify::findSet(shared_ptr<Song> song) {
     // Path compression - set father to root
     song->setFather(findSet(song->getFather()));
     return song->getFather();
-} /// need to add genre changes fixese
+} /// need to add genre changes fixes

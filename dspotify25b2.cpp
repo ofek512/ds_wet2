@@ -128,9 +128,12 @@ StatusType DSpotify::mergeGenres(int genreId1, int genreId2, int genreId3) {
     // Insert the new genre into the hash table
     genres.insert(newGenre);
 
-    // Remove the old genres
-    genres.remove(genre1);  // Use IDs, not shared_ptr objects
-    genres.remove(genre2);
+    // Make the original genres empty instead of removing them
+    genre1->setRoot(nullptr);
+    genre1->setSize(0);
+
+    genre2->setRoot(nullptr);
+    genre2->setSize(0);
 
     return StatusType::SUCCESS;
 }

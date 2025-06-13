@@ -75,7 +75,7 @@ StatusType DSpotify::mergeGenres(int genreId1, int genreId2, int genreId3) {
     if (genreId1 <= 0 || genreId2 <= 0 || genreId3 <= 0) {
         return StatusType::INVALID_INPUT;
     } else if (genreId1 == genreId2 || genreId1 == genreId3 || genreId2 == genreId3) {
-        return StatusType::FAILURE; // Cannot merge the same genre
+        return StatusType::INVALID_INPUT; // Cannot merge the same genre
     }
 
     // Check if genres exist

@@ -14,6 +14,7 @@
 #define DSPOTIFY25SPRING_WET2_H_
 
 #include "wet2util.h"
+#include "Genre.h" // genre.h includes song.h already.
 #include "Song.h" // song.h includes genres already.
 #include "Hash.h"
 
@@ -43,7 +44,7 @@ public:
     output_t<int> getNumberOfGenreChanges(int songId);
     // } </DO-NOT-MODIFY>
 
-    shared_ptr<Song> findSet(shared_ptr<Song> song)
+    shared_ptr<Song> findSet(shared_ptr<Song> song);
 };
 
 #endif // DSPOTIFY25SPRING_WET2_H_

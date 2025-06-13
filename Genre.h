@@ -7,6 +7,7 @@
 
 #include "Song.h"
 #include <memory>
+#include <utility>
 
 using namespace std;
 
@@ -26,7 +27,7 @@ private:
 
 public:
     // Constructor
-    Genre(int id) : genre_id(id), size(0), root(nullptr) {}
+    Genre(int id) : root(nullptr), genre_id(id), size(0) {}
 
     // Destructor
     ~Genre() = default;
@@ -57,7 +58,11 @@ public:
 
     // Setters
     void setRoot(shared_ptr<Song> new_root) {
-        root = new_root;
+        root = std::move(new_root); // check if necessary to use std::move
+    }
+
+    void setSize(int new_size) {
+        size = new_size;
     }
 
     // cast to int
@@ -82,4 +87,4 @@ public:
 };
 
 
-#endif //DS_WET2_GENRE_H
+#endif // DS_WET2_GENRE_H

@@ -6,9 +6,10 @@
 #define DS_WET2_SONG_H
 
 #include <memory>
-#include "Genre.h"
 
 using namespace std;
+
+class Genre; // forward declaration of class Genre
 
 class Song {
 private:
@@ -19,8 +20,8 @@ private:
 
 public:
     // constructor
-    Song(int id) : song_id(id), genreChanges(0), father(nullptr),
-                   genre(nullptr) {}
+    Song(int id) :genre(), father(), song_id(id), genreChanges(0)
+                    {}
 
     // destructor
     ~Song() = default;

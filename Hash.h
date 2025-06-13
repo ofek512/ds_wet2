@@ -287,7 +287,7 @@ shared_ptr<T> Hash<T>::member(int key) const {
 
 template<class T>
 StatusType Hash<T>::enlargeTable() {
-    if (prime_index >= sizeof(TABLE_OF_PRIMES) / sizeof(int) - 1) {
+   if (prime_index >= static_cast<int>(sizeof(TABLE_OF_PRIMES) / sizeof(int) - 1)) {
         return StatusType::FAILURE; // No more primes available
     }
 
@@ -378,7 +378,7 @@ StatusType Hash<T>::rehash() {
     table = new_table;
 
     // Reset counters for rehashing
-    int old_curr_size = curr_size;
+    //int old_curr_size = curr_size;
     curr_size = 0;
     delete_counter = 0;
     insert_counter = 0;

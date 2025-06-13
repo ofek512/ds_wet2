@@ -194,18 +194,22 @@ output_t<int> DSpotify::getNumberOfGenreChanges(int songId) {
 /// ---------- helper methods ----------
 
 shared_ptr<Song> DSpotify::findSet(shared_ptr<Song> song) {
-    if (!song->getFather()) {
-        return song; // This is the root
+    auto father = song->getFather();
+    if (!father) {
+        // this is the root; nothing to accumulate
+        return song;
     }
 
-    // Recursively find the root
-    shared_ptr<Song> root = findSet(song->getFather());
+    // first, recursively find the true root
+    shared_ptr<Song> root = findSet(father);
 
-    // Important: Update the song's genre change count BEFORE updating the father pointer
-    // This avoids missing changes when paths are compressed
-    if (song->getFather() != root) {
-        // Add the genre changes from the father before updating the pointer
-        song->setGenreChanges(song->getGenreChanges() + song->getFather()->getGenreChanges());
+    // **always** absorb your (old) father's genreChanges
+    song->setGenreChanges(
+            song->getGenreChanges() + father->getGenreChanges()
+    );
+
+    // now, if your father wasn't already the root, compress the path
+    if (father != root) {
         song->setFather(root);
     }
 

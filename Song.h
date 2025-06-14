@@ -66,6 +66,10 @@ public:
         genreChanges += changes;
     }
 
+    void decreeseGenreChanges(int changes) {
+            genreChanges -= changes;
+    }
+
     void setGenreChanges(int changes) {
         genreChanges = changes;
     }

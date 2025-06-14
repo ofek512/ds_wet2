@@ -118,17 +118,21 @@ StatusType DSpotify::mergeGenres(int genreId1, int genreId2, int genreId3) {
     } else {
         // Both genres have songs
         if (genre1->getSize() >= genre2->getSize()) {
+            // attach smaller tree (root2) under root1
             root2->setFather(root1);
             newGenre->setRoot(root1);
-            root1->setGenre(newGenre);  // Update genre pointer
-            root2->addGenreChanges((-root1->getGenreChanges()));
-            root1->incrementGenreChanges(); // Increment genre changes for root1
+            root1->setGenre(newGenre);
+            // bump the merge‐count on the new root first
+            root1->incrementGenreChanges();
+            // now adjust root2's offset so that its subtree sees the correct delta
+            root2->decreeseGenreChanges(root1->getGenreChanges());
         } else {
+            // attach smaller tree (root1) under root2
             root1->setFather(root2);
             newGenre->setRoot(root2);
-            root2->setGenre(newGenre);  // Update genre pointer
-            root1->addGenreChanges((-root2->getGenreChanges()));
-            root2->incrementGenreChanges(); // Increment genre changes for root2
+            root2->setGenre(newGenre);
+            root2->incrementGenreChanges();
+            root1->decreeseGenreChanges(root2->getGenreChanges());
         }
     }
 
@@ -202,9 +206,12 @@ output_t<int> DSpotify::getNumberOfGenreChanges(int songId) {
     // Get the song from the hash table
     shared_ptr<Song> song = *songs.member(songId);
     // Compress the path to find the root song and then simply find Song again
-    shared_ptr<Song> root = findSet(song);
-    // Return the genre changes of the song plus the genre changes of the root song
-    return output_t<int>(song->getGenreChanges() + root->getGenreChanges());
+    auto root = findSet(song);
+    if (song == root) {
+        return output_t<int>(root->getGenreChanges());
+    } else {
+        return output_t<int>(song->getGenreChanges() + root->getGenreChanges());
+    }
 }
 
 /// ---------- helper methods ----------

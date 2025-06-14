@@ -63,6 +63,7 @@ StatusType DSpotify::addSong(int songId, int genreId) {
     } else {
         // Otherwise, set the new song's father to the root of the genre
         newSong->setFather(rootGenreSong);
+        newSong->decreeseGenreChanges(rootGenreSong->getGenreChanges());
     }
     genre->incrementSize();
 
@@ -109,12 +110,20 @@ StatusType DSpotify::mergeGenres(int genreId1, int genreId2, int genreId3) {
         // Only genre2 has songs
         newGenre->setRoot(root2);
         root2->setGenre(newGenre);  // Update genre pointer
-        root2->incrementGenreChanges(); // Increment genre changes for root2
+        if(root2-> getGenreChanges() == 0) {
+            root2->setGenreChanges(2);
+        } else {
+            root2->incrementGenreChanges();
+        }
     } else if (!root2) {
         // Only genre1 has songs
         newGenre->setRoot(root1);
         root1->setGenre(newGenre);  // Update genre pointer
-        root1->incrementGenreChanges(); // Increment genre changes for root1
+        if(root1-> getGenreChanges() == 0) {
+            root1->setGenreChanges(2);
+        } else {
+            root1->incrementGenreChanges();
+        }
     } else {
         // Both genres have songs
         if (genre1->getSize() >= genre2->getSize()) {
@@ -122,17 +131,48 @@ StatusType DSpotify::mergeGenres(int genreId1, int genreId2, int genreId3) {
             root2->setFather(root1);
             newGenre->setRoot(root1);
             root1->setGenre(newGenre);
-            // bump the merge‐count on the new root first
-            root1->incrementGenreChanges();
-            // now adjust root2's offset so that its subtree sees the correct delta
-            root2->decreeseGenreChanges(root1->getGenreChanges());
+
+            if(genre1->getRoot() -> getGenreChanges() == 0) {
+                genre1->getRoot() ->setGenreChanges(2);
+                if(root2->getGenreChanges() == 0) {
+                    root2->setGenreChanges(0);
+                } else {
+                    root2->decreeseGenreChanges(1);
+                }
+
+            } else {
+                if(root2->getGenreChanges() == 0) {
+                    root2->decreeseGenreChanges(root1->getGenreChanges());
+                    root2->addGenreChanges(2);
+                } else {
+                    root2->decreeseGenreChanges(root1->getGenreChanges());
+                }
+                root1->incrementGenreChanges();
+            }
+
         } else {
-            // attach smaller tree (root1) under root2
+            // attach smaller tree (root2) under root1
             root1->setFather(root2);
             newGenre->setRoot(root2);
             root2->setGenre(newGenre);
-            root2->incrementGenreChanges();
-            root1->decreeseGenreChanges(root2->getGenreChanges());
+
+            if(genre2->getRoot() -> getGenreChanges() == 0) {
+                genre2->getRoot() ->setGenreChanges(2);
+                if(root1->getGenreChanges() == 0) {
+                    root1->setGenreChanges(0);
+                } else {
+                    root1->decreeseGenreChanges(1);
+                }
+
+            } else {
+                if(root1->getGenreChanges() == 0) {
+                    root1->decreeseGenreChanges(root2->getGenreChanges());
+                    root1->addGenreChanges(2);
+                } else {
+                    root1->decreeseGenreChanges(root2->getGenreChanges());
+                }
+                root2->incrementGenreChanges();
+            }
         }
     }
 

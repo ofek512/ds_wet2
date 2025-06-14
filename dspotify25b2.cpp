@@ -60,10 +60,12 @@ StatusType DSpotify::addSong(int songId, int genreId) {
     if (!rootGenreSong) {
         genre->setRoot(newSong);
         newSong->setGenre(genre); // Update genre pointer
+        newSong->incrementGenreChanges(); // Increment genre changes for the new root
     } else {
         // Otherwise, set the new song's father to the root of the genre
         newSong->setFather(rootGenreSong);
         newSong->decreeseGenreChanges(rootGenreSong->getGenreChanges());
+        newSong->incrementGenreChanges(); // Increment genre changes for the new root
     }
     genre->incrementSize();
 

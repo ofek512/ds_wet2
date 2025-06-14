@@ -264,12 +264,14 @@ shared_ptr<T> Hash<T>::member(int key) const {
 
     int k = 0;
     int attempts = 0;
-
     while (attempts < max_size) {
-        int index =
-                (key % max_size + k * (1 + (key % (max_size - 5)))) % max_size;
+        int index = (key % max_size + k * (1 + (key % (max_size - 5)))) % max_size;
 
         // Skip empty and deleted slots
+        if (!table[index]) {
+            return nullptr;
+        }
+
         if (!table[index]->data || table[index]->is_deleted) {
             k++;
             attempts++;
@@ -292,7 +294,7 @@ shared_ptr<T> Hash<T>::member(int key) const {
 
 template<class T>
 StatusType Hash<T>::enlargeTable() {
-   if (prime_index >= static_cast<int>(sizeof(TABLE_OF_PRIMES) / sizeof(int) - 1)) {
+    if (prime_index >= static_cast<int>(sizeof(TABLE_OF_PRIMES) / sizeof(int)) - 1) {
         return StatusType::FAILURE; // No more primes available
     }
 

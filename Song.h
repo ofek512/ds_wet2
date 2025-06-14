@@ -70,6 +70,7 @@ public:
         genreChanges = changes;
     }
 
+
     // cast to int
     operator int() const {
         return song_id;

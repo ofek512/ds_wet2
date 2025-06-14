@@ -4,7 +4,9 @@
 using namespace std;
 
 #define MIN_SIZE 13
-#define load_factor 0.7
+#define LOAD_FACTOR 0.7
+#define SHRINK_THRESHOLD 0.3
+#define REHASH_THRESHOLD 0.5
 
 template<class T>
 struct Node {
@@ -92,9 +94,9 @@ public:
 template<class T>
 StatusType Hash<T>::resizeTable() {
     // check if we need to enlarge or shrink the table
-    if (insert_counter > load_factor * max_size) {
+    if (insert_counter > LOAD_FACTOR * max_size) {
         return enlargeTable();
-    } else if (curr_size < max_size * 0.3 && max_size > MIN_SIZE) {
+    } else if (curr_size < max_size * SHRINK_THRESHOLD && max_size > MIN_SIZE) {
         return shrinkTable();
     }
     return StatusType::SUCCESS; // no resizing needed
@@ -308,4 +310,33 @@ int Hash<T>::getHashKey(const T &data) const {
             "Type T must be convertible to int for hashing");
 
     return static_cast<int>(data);
+}
+template<class T>
+StatusType Hash<T>::rehash(){
+    // Create a new table of same size
+    shared_ptr<Node<T>> *new_table = new shared_ptr<Node<T>>[max_size];
+    if(!new_table) {
+        return StatusType::ALLOCATION_ERROR; // memory allocation failed
+    }
+    for (int i = 0; i < max_size; ++i) {
+        new_table[i] = make_shared<Node<T>>();
+    }
+    delete_counter = 0;
+    insert_counter = 0;
+    curr_size = 0; // reset counters
+    shared_ptr<Node<T>> *old_table = table;
+    table = new_table; // update the table pointer
+
+    for(int i = 0; i < max_size; i++) {
+        if(old_table[i]->data && !old_table[i]->is_deleted) {
+            StatusType status = insert(*(old_table[i]->data));
+            if (status != StatusType::SUCCESS) {
+                delete[] old_table; // free memory on failure
+                return status; // return the status of insertion
+            }
+        }
+    }
+    delete[] old_table;
+    return StatusType::SUCCESS; // rehash successful
+
 }

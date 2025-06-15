@@ -1,4 +1,3 @@
-
 #ifndef HASH_H
 #define HASH_H
 
@@ -31,34 +30,9 @@ struct hashingResult {
 
 // Table of prime numbers used for hash table sizing
 const int TABLE_OF_PRIMES[] = {
-        11,         // start
-        23,         // ~2×11
-        47,         // ~2×23
-        97,         // ~2×47
-        197,        // ~2×97
-        397,        // ~2×197
-        797,        // ~2×397
-        1601,       // ~2×797
-        3203,       // ~2×1601
-        6421,       // ~2×3203
-        12853,      // ~2×6421
-        25717,      // ~2×12853
-        51437,      // ~2×25717
-        102877,     // ~2×51437
-        205759,     // ~2×102877
-        411527,     // ~2×205759
-        823117,     // ~2×411527
-        1646237,    // ~2×823117
-        3292489,    // ~2×1646237
-        6584983,    // ~2×3292489
-        13169977,   // ~2×6584983
-        26339969,   // ~2×13169977
-        52679969,   // ~2×26339969
-        105359939,  // ~2×52679969
-        210719881,  // ~2×105359939
-        421439783,  // ~2×210719881
-        842879579,  // ~2×421439783
-        1685759167  // ~2×842879579
+        11, 23, 47, 97, 197, 397, 797, 1601, 3203, 6421, 12853, 25717, 51437,
+        102877, 205759, 411527, 823117, 1646237, 3292489, 6584983, 13169977,
+        26339969, 52679969, 105359939, 210719881, 421439783, 842879579, 1685759167
 };
 
 template<class T>
@@ -80,8 +54,8 @@ private:
     hashingResult<T> hash_insert(const T &data);
     hashingResult<T> hash_search(const T &data);
 
-    // Helper to get hash value from data
-    int getHashKey(const T &data) const;
+    // Helper to get hash value from data - now returns long for larger numbers
+    inline long getHashKey(const T &data) const;
 
 public:
     // Constructor
@@ -108,18 +82,20 @@ public:
     Hash &operator=(const Hash &other) = delete;
 };
 
-// Helper method to extract hash key from data
+// Inline helper method to extract hash key from data for better performance
+// Now returns long to handle large numbers
 template<class T>
-int Hash<T>::getHashKey(const T &data) const {
-    // Re-enable type safety check
-    static_assert(std::is_convertible<decltype(*std::declval<T>()), int>::value, "Type T must be dereferenceable to a type convertible to int");
+inline long Hash<T>::getHashKey(const T &data) const {
+    // Type safety check
+    static_assert(std::is_convertible<decltype(*std::declval<T>()), long>::value,
+                  "Type T must be dereferenceable to a type convertible to long");
 
     // Safety check before dereferencing
     if (!data) {
         throw std::invalid_argument("Cannot hash null data");
     }
 
-    return static_cast<int>(*data);
+    return static_cast<long>(*data);
 }
 
 template<class T>
@@ -129,34 +105,30 @@ hashingResult<T> Hash<T>::hash_insert(const T &data) {
         return {-1, StatusType::FAILURE};
     }
 
-    long key = getHashKey(data);
-    long k = 0;
-    int attempts = 0;
+    const long key = getHashKey(data);
+    // Precompute hash values outside the loop - using long for large numbers
+    const long h1 = key % max_size;
+    long h2 = 1 + (key % (max_size - 5)); // Ensure h2 is positive
+    if (h2 <= 0) h2 = 1;
 
-    // Double hashing algorithm:
-    // h(x) = x % m
-    // r(x) = 1 + (x % (m - 5)) - ensures r(x) and m are relatively prime
-    // hk(x) = (h(x) + k * r(x)) % m
-    while (attempts < max_size) {
-        long h1 = key % max_size;
-        long h2 = 1 + (key % (max_size - 5)); // Ensure h2 is positive
-        if (h2 <= 0) h2 = 1;
-        long index = (h1 + k * h2) % max_size; // Ensure index is positive
-        if (index < 0) index += max_size;
+    long k = 0;
+
+    // More efficient loop
+    do {
+        const long index = (h1 + k * h2) % max_size;
+
+        // Skip deleted or empty slots
         if (!table[index]->data || table[index]->is_deleted) {
-            // Found an empty or deleted slot
             return {index, StatusType::SUCCESS};
         }
 
         // Check if element already exists and is not deleted
-        if (table[index]->data && (table[index]->data) == data &&
-            !table[index]->is_deleted) {
+        if (table[index]->data && (*table[index]->data) == (*data) && !table[index]->is_deleted) {
             return {-1, StatusType::FAILURE}; // Element already exists
         }
 
-        attempts++;
         k++;
-    }
+    } while (k < max_size);
 
     return {-1, StatusType::FAILURE}; // Table is full
 }
@@ -168,30 +140,30 @@ hashingResult<T> Hash<T>::hash_search(const T &data) {
         return {-1, StatusType::FAILURE};
     }
 
-    long key = getHashKey(data);
-    long k = 0;
-    int attempts = 0;
+    const long key = getHashKey(data);
+    // Precompute hash values outside the loop - using long for large numbers
+    const long h1 = key % max_size;
+    long h2 = 1 + (key % (max_size - 5)); // Ensure h2 is positive
+    if (h2 <= 0) h2 = 1;
 
-    while (attempts < max_size) {
-        long h1 = key % max_size;
-        long h2 = 1 + (key % (max_size - 5)); // Ensure h2 is positive
-        if (h2 <= 0) h2 = 1;
-        long index = (h1 + k * h2) % max_size; // Ensure index is positive
-        if (index < 0) index += max_size;
+    long k = 0;
+
+    // More efficient loop
+    do {
+        const long index = (h1 + k * h2) % max_size;
+
         // Found empty slot (not deleted) - element doesn't exist
         if (!table[index]->data && !table[index]->is_deleted) {
             return {-1, StatusType::FAILURE};
         }
 
         // Found our element and it's not deleted
-        if (table[index]->data && *(table[index]->data) == data &&
-            !table[index]->is_deleted) {
+        if (table[index]->data && (*table[index]->data) == (*data) && !table[index]->is_deleted) {
             return {index, StatusType::SUCCESS};
         }
 
         k++;
-        attempts++;
-    }
+    } while (k < max_size);
 
     // If we've checked the entire table and found nothing
     return {-1, StatusType::FAILURE};
@@ -200,8 +172,7 @@ hashingResult<T> Hash<T>::hash_search(const T &data) {
 template<class T>
 StatusType Hash<T>::insert(const T data) {
     // Check if we need to enlarge the table
-    if (static_cast<double>(curr_size + delete_counter) / max_size >=
-        DEFAULT_LOAD_FACTOR) {
+    if (static_cast<double>(curr_size + delete_counter) / max_size >= DEFAULT_LOAD_FACTOR) {
         StatusType status = enlargeTable();
         if (status != StatusType::SUCCESS) {
             return status;
@@ -239,8 +210,7 @@ StatusType Hash<T>::remove(const T data) {
     }
 
     // Check if we need to shrink the table
-    if (max_size > MIN_SIZE &&
-        static_cast<double>(curr_size) <= max_size * SHRINK_THRESHOLD) {
+    if (max_size > MIN_SIZE && static_cast<double>(curr_size) <= max_size * SHRINK_THRESHOLD) {
         StatusType status = shrinkTable();
         if (status != StatusType::SUCCESS) {
             return status;
@@ -266,35 +236,38 @@ T Hash<T>::member(int key) const {
         return nullptr;
     }
 
+    // Convert to long for consistency with other hash operations
+    const long long_key = static_cast<long>(key);
+
+    // Precompute hash values outside the loop - using long for large numbers
+    const long h1 = long_key % max_size;
+    long h2 = 1 + (long_key % (max_size - 5)); // Ensure h2 is positive
+    if (h2 <= 0) h2 = 1;
+
     long k = 0;
-    long attempts = 0;
-    while (attempts < max_size) {
-        long h1 = key % max_size;
-        long h2 = 1 + (key % (max_size - 5)); // Ensure h2 is positive
-        if (h2 <= 0) h2 = 1;
-        long index = (h1 + k * h2) % max_size; // Ensure index is positive
-        if (index < 0) index += max_size;
-        // Skip empty and deleted slots
+
+    // More efficient loop
+    do {
+        const long index = (h1 + k * h2) % max_size;
+
+        // Skip empty slots
         if (!table[index]) {
             return nullptr;
         }
 
-        if (!(table[index]->data) || table[index]->is_deleted) {
+        // Skip deleted slots and empty data
+        if (!table[index]->data || table[index]->is_deleted) {
             k++;
-            attempts++;
             continue;
         }
 
-        if (table[index]->data) {
-            int dataKey = getHashKey((table[index]->data));
-            if (dataKey == key) {
-                return table[index]->data;
-            }
+        // Check if this is our key
+        if (getHashKey(table[index]->data) == long_key) {
+            return table[index]->data;
         }
 
         k++;
-        attempts++;
-    }
+    } while (k < max_size);
 
     return nullptr; // Not found
 }
@@ -305,10 +278,11 @@ StatusType Hash<T>::enlargeTable() {
         return StatusType::FAILURE; // No more primes available
     }
 
-    prime_index++; // Update prime index before using it
-    int new_max_size = TABLE_OF_PRIMES[prime_index];
+    // Pre-increment prime_index to avoid another increment operation
+    const int new_prime_index = prime_index + 1;
+    const int new_max_size = TABLE_OF_PRIMES[new_prime_index];
 
-    // Create a new table
+    // Create a new table with pre-allocated capacity
     shared_ptr<Node<T>> *new_table = new shared_ptr<Node<T>>[new_max_size];
     for (int i = 0; i < new_max_size; ++i) {
         new_table[i] = make_shared<Node<T>>();
@@ -316,21 +290,22 @@ StatusType Hash<T>::enlargeTable() {
 
     // Save old table
     shared_ptr<Node<T>> *old_table = table;
-    int old_max_size = max_size;
+    const int old_max_size = max_size;
 
-    // Update the table and max size
+    // Update parameters before rehashing
     table = new_table;
     max_size = new_max_size;
+    prime_index = new_prime_index;
 
     // Reset counters for rehashing
     curr_size = 0;
     delete_counter = 0;
     insert_counter = 0;
 
-    // Rehash the old table
+    // Rehash only active elements
     for (int i = 0; i < old_max_size; i++) {
         if (old_table[i]->data && !old_table[i]->is_deleted) {
-            insert((old_table[i]->data));
+            insert(old_table[i]->data);
         }
     }
 
@@ -344,10 +319,11 @@ StatusType Hash<T>::shrinkTable() {
         return StatusType::FAILURE; // Cannot shrink below MIN_SIZE
     }
 
-    prime_index--; // Update prime index before using it
-    int new_max_size = TABLE_OF_PRIMES[prime_index];
+    // Pre-decrement prime_index to avoid another decrement operation
+    const int new_prime_index = prime_index - 1;
+    const int new_max_size = TABLE_OF_PRIMES[new_prime_index];
 
-    // Create a new table
+    // Create a new table with pre-allocated capacity
     shared_ptr<Node<T>> *new_table = new shared_ptr<Node<T>>[new_max_size];
     for (int i = 0; i < new_max_size; ++i) {
         new_table[i] = make_shared<Node<T>>();
@@ -355,21 +331,22 @@ StatusType Hash<T>::shrinkTable() {
 
     // Save old table
     shared_ptr<Node<T>> *old_table = table;
-    int old_max_size = max_size;
+    const int old_max_size = max_size;
 
-    // Update table and parameters
+    // Update parameters before rehashing
     table = new_table;
     max_size = new_max_size;
+    prime_index = new_prime_index;
 
     // Reset counters for rehashing
     curr_size = 0;
     delete_counter = 0;
     insert_counter = 0;
 
-    // Rehash the old table
+    // Rehash only active elements
     for (int i = 0; i < old_max_size; i++) {
         if (old_table[i]->data && !old_table[i]->is_deleted) {
-            insert(*(old_table[i]->data));
+            insert(old_table[i]->data);
         }
     }
 
@@ -379,7 +356,7 @@ StatusType Hash<T>::shrinkTable() {
 
 template<class T>
 StatusType Hash<T>::rehash() {
-    // Create a new table of same size
+    // Create a new table of same size with pre-allocated capacity
     shared_ptr<Node<T>> *new_table = new shared_ptr<Node<T>>[max_size];
     for (int i = 0; i < max_size; ++i) {
         new_table[i] = make_shared<Node<T>>();
@@ -392,15 +369,14 @@ StatusType Hash<T>::rehash() {
     table = new_table;
 
     // Reset counters for rehashing
-    //int old_curr_size = curr_size;
     curr_size = 0;
     delete_counter = 0;
     insert_counter = 0;
 
-    // Rehash only the active elements
+    // Rehash only active elements
     for (int i = 0; i < max_size; ++i) {
         if (old_table[i]->data && !old_table[i]->is_deleted) {
-            insert(*(old_table[i]->data));
+            insert(old_table[i]->data);
         }
     }
 

@@ -26,14 +26,15 @@ StatusType DSpotify::addGenre(int genreId) {
     }
 } /// V
 
-StatusType DSpotify::addSong(int songId, int genreId) {
+StatusType DSpotify::addSong(int songId, int genreId) { /// LOOKED
     // Input validation
     if (songId <= 0 || genreId <= 0) {
         return StatusType::INVALID_INPUT;
     }
 
     // check if genre exists
-    if (!genres.member(genreId)) { /// check if need to add other checks
+    shared_ptr<Genre> genre;
+    if (!(genre = genres.member(genreId))) { /// check if need to add other checks
         return StatusType::FAILURE; // Genre does not exist
     }
 
@@ -44,7 +45,6 @@ StatusType DSpotify::addSong(int songId, int genreId) {
 
     // Create song node and add it to the hash table and then to the union find
     shared_ptr<Song> newSong = make_shared<Song>(songId);
-    shared_ptr<Genre> genre = genres.member(genreId); // Get the genre from the hash table
 
     // Add to the hash
     StatusType status = songs.insert(newSong);
@@ -81,7 +81,9 @@ StatusType DSpotify::mergeGenres(int genreId1, int genreId2, int genreId3) {
     }
 
     // Check if genres exist
-    if (!genres.member(genreId1) || !genres.member(genreId2)) {
+    shared_ptr<Genre> genre1;
+    shared_ptr<Genre> genre2;
+    if (!(genre1 = genres.member(genreId1)) || !(genre2 = genres.member(genreId2))) {
         return StatusType::FAILURE; // One or more genres do not exist
     }
 
@@ -89,10 +91,6 @@ StatusType DSpotify::mergeGenres(int genreId1, int genreId2, int genreId3) {
     if (genres.member(genreId3)) {
         return StatusType::FAILURE; // Genre 3 already exists
     }
-
-    // Get the genres from the hash table
-    shared_ptr<Genre> genre1 = genres.member(genreId1);
-    shared_ptr<Genre> genre2 = genres.member(genreId2);
 
     // Create a new genre for the merged genres
     shared_ptr<Genre> newGenre = make_shared<Genre>(genreId3);
@@ -197,12 +195,10 @@ output_t<int> DSpotify::getSongGenre(int songId) {
     }
 
     // Check if song exists
-    if (!songs.member(songId)) {
+    shared_ptr<Song> song;
+    if (!(song = songs.member(songId))) {
         return {StatusType::FAILURE}; // Song does not exist
     }
-
-    // Get the song from the hash table
-    shared_ptr<Song> song = songs.member(songId);
 
     // Find the root with path compression
     shared_ptr<Song> root = findSet(song);
@@ -240,12 +236,12 @@ output_t<int> DSpotify::getNumberOfGenreChanges(int songId) {
     }
 
     // check if song exists
-    if (!songs.member(songId)) {
+    shared_ptr<Song> song;
+    if (!(song = songs.member(songId))) {
         return output_t<int>(StatusType::FAILURE); // Song does not exist
     }
 
-    // Get the song from the hash table
-    shared_ptr<Song> song = songs.member(songId);
+
     // Compress the path to find the root song and then simply find Song again
     auto root = findSet(song);
     if (song == root) {

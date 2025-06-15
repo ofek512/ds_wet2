@@ -31,6 +31,8 @@ public:
 
     virtual ~DSpotify(); /// V
 
+    shared_ptr<Song> findSetWithChanges(shared_ptr<Song> song);
+
     StatusType addGenre(int genreId); /// V
 
     StatusType addSong(int songId, int genreId);

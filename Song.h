@@ -21,13 +21,17 @@ private:
 public:
     // constructor
     Song(int id) :genre(), father(), song_id(id), genreChanges(0)
-                    {}
+    {}
 
     // destructor
     ~Song() = default;
 
     // getters
     int getSongId() const {
+        return song_id;
+    }
+
+    int getID() const {
         return song_id;
     }
 
@@ -67,7 +71,7 @@ public:
     }
 
     void decreeseGenreChanges(int changes) {
-            genreChanges -= changes;
+        genreChanges -= changes;
     }
 
     void setGenreChanges(int changes) {

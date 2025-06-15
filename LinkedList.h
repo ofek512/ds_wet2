@@ -4,8 +4,6 @@
 
 #ifndef DS_WET2_LINKEDLIST_H
 #define DS_WET2_LINKEDLIST_H
-#ifndef DATASTRUCTURESHW2_LINKEDLIST_H
-#define DATASTRUCTURESHW2_LINKEDLIST_H
 #include <memory>
 
 template <class T>
@@ -145,7 +143,5 @@ public:
         return sum;
     }
 };
-
-#endif //DATASTRUCTURESHW2_LINKEDLIST_H
 
 #endif //DS_WET2_LINKEDLIST_H

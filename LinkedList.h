@@ -4,144 +4,133 @@
 
 #ifndef DS_WET2_LINKEDLIST_H
 #define DS_WET2_LINKEDLIST_H
-#include <memory>
 
-template <class T>
-class Node{
+#include <memory>
+using namespace std;
+
+template<typename T>
+class ListNode {
 private:
-    std::shared_ptr<T> data = nullptr;
-    std::shared_ptr<Node<T>> next = nullptr;
-    int ID;
+    shared_ptr<T>  data_;
+    shared_ptr<ListNode<T>> next_;
+    int                  id_;
 
 public:
-    Node<T>(std::shared_ptr<T> data, int ID) : data(data), next(nullptr), ID(ID)
+    explicit ListNode(const shared_ptr<T>& data, int id)
+            : data_(data), next_(nullptr), id_(id)
     {}
 
-    void setNext(std::shared_ptr<Node<T>> nextNode){
-        next = nextNode;
+    void setNext(const shared_ptr<ListNode<T>>& next) {
+        next_ = next;
     }
 
-    std::shared_ptr<Node<T>> getNext(){
-        return next;
+    shared_ptr<ListNode<T>> getNext() const {
+        return next_;
     }
 
-    int getID(){
-        return ID;
+    int getID() const {
+        return id_;
     }
 
-    std::shared_ptr<T> getData(){
-        return data;
+    shared_ptr<T> getData() const {
+        return data_;
     }
-
 };
 
 
-template <class T>
+template<typename T>
 class LinkedList {
 private:
-    std::shared_ptr<Node<T>> start = nullptr;
-    int length = 0;
+    shared_ptr<ListNode<T>> head_;
+    int                           size_;
 
 public:
-
-    LinkedList() = default;
+    LinkedList()
+            : head_(nullptr), size_(0)
+    {}
 
     void decreaseSize() {
-        length--;
+        --size_;
     }
 
-    std::shared_ptr<Node<T>> getStart(){
-        return start;
+    shared_ptr<ListNode<T>> getStart() const {
+        return head_;
     }
 
-    void setStart(std::shared_ptr<Node<T>> newStart){
-        start = newStart;
+    void setStart(const shared_ptr<ListNode<T>>& node) {
+        head_ = node;
     }
 
-    int getSize() {
-        return length;
+    int getSize() const {
+        return size_;
     }
 
-    void insert(std::shared_ptr<T> newData, int newID){
-        std::shared_ptr<Node<T>> newNode =
-                std::make_shared<Node<T>>(newData, newID);
-        newNode->setNext(start);
-        start = newNode;
-        length++;
+    void insert(const shared_ptr<T>& item, int id) {
+        auto node = std::make_shared<ListNode<T>>(item, id);
+        node->setNext(head_);
+        head_ = node;
+        ++size_;
     }
 
-    bool search(int ID){
-        if(start == nullptr){
-            return false;
+    bool search(int id) const {
+        auto curr = head_;
+        while (curr) {
+            if (curr->getID() == id)
+                return true;
+            curr = curr->getNext();
         }
-        std::shared_ptr<Node<T>> currentNode = start;
-        while(ID != currentNode->getID()){
-            currentNode = currentNode->getNext();
-            if(currentNode == nullptr){
-                return false;
-            }
-        }
-        return true;
+        return false;
     }
 
-    std::shared_ptr<T> removeFirst(){
-        if(start == nullptr){
+    shared_ptr<T> removeFirst() {
+        if (!head_)
             return nullptr;
-        }
-        auto oldStart = start;
-        start = start->getNext();
-        oldStart->setNext(nullptr);
-        length--;
-        return oldStart->getData();
+        auto node = head_;
+        head_ = head_->getNext();
+        node->setNext(nullptr);
+        --size_;
+        return node->getData();
     }
 
-    std::shared_ptr<T> getValue(int searchID) {
-        auto current = start;
-        while(current != nullptr) {
-            if (current->getID() == searchID) {
-                return current->getData();
-            }
-            current = current->getNext();
+    shared_ptr<T> getValue(int id) const {
+        auto curr = head_;
+        while (curr) {
+            if (curr->getID() == id)
+                return curr->getData();
+            curr = curr->getNext();
         }
         return nullptr;
     }
 
-    bool remove(int id) { //TODO check this function
-        if(start == nullptr){
+    bool remove(int id) {
+        if (!head_)
             return false;
+        auto curr = head_;
+        shared_ptr<ListNode<T>> prev = nullptr;
+        while (curr && curr->getID() != id) {
+            prev = curr;
+            curr = curr->getNext();
         }
-        std::shared_ptr<Node<T>> currentNode = start, previousNode = start;
-        if(currentNode == nullptr){
+        if (!curr)
             return false;
-        }
-        while(id != currentNode->getID()){
-            previousNode = currentNode;
-            currentNode = currentNode->getNext();
-            if(currentNode == nullptr){
-                return false;
-            }
-        }
-        if(previousNode != currentNode){
-            previousNode->setNext(currentNode->getNext());
-
-        } else{
-            start = currentNode->getNext();
-        }
-        length--;
+        if (prev)
+            prev->setNext(curr->getNext());
+        else
+            head_ = curr->getNext();
+        --size_;
         return true;
     }
 
-    int countInstances(int num) {
-        int sum = 0;
-        auto current = start;
-        while(current != nullptr) {
-            if (current->getID() == num) {
-                sum++;
-            }
-            current = current->getNext();
+    int countInstances(int id) const {
+        int cnt = 0;
+        auto curr = head_;
+        while (curr) {
+            if (curr->getID() == id)
+                ++cnt;
+            curr = curr->getNext();
         }
-        return sum;
+        return cnt;
     }
 };
 
-#endif //DS_WET2_LINKEDLIST_H
+#endif // DS_WET2_LINKEDLIST_H

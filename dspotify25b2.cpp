@@ -44,8 +44,7 @@ StatusType DSpotify::addSong(int songId, int genreId) {
 
     // Create song node and add it to the hash table and then to the union find
     shared_ptr<Song> newSong = make_shared<Song>(songId);
-    shared_ptr<Genre> genre = *genres.member(
-            genreId); // Get the genre from the hash table
+    shared_ptr<Genre> genre = genres.member(genreId); // Get the genre from the hash table
 
     // Add to the hash
     StatusType status = songs.insert(newSong);
@@ -92,8 +91,8 @@ StatusType DSpotify::mergeGenres(int genreId1, int genreId2, int genreId3) {
     }
 
     // Get the genres from the hash table
-    shared_ptr<Genre> genre1 = *genres.member(genreId1);
-    shared_ptr<Genre> genre2 = *genres.member(genreId2);
+    shared_ptr<Genre> genre1 = genres.member(genreId1);
+    shared_ptr<Genre> genre2 = genres.member(genreId2);
 
     // Create a new genre for the merged genres
     shared_ptr<Genre> newGenre = make_shared<Genre>(genreId3);
@@ -203,7 +202,7 @@ output_t<int> DSpotify::getSongGenre(int songId) {
     }
 
     // Get the song from the hash table
-    shared_ptr<Song> song = *songs.member(songId);
+    shared_ptr<Song> song = songs.member(songId);
 
     // Find the root with path compression
     shared_ptr<Song> root = findSet(song);
@@ -229,7 +228,7 @@ output_t<int> DSpotify::getNumberOfSongsByGenre(int genreId) {
     }
 
     // Get the genre from the hash table
-    shared_ptr<Genre> genre = *genres.member(genreId);
+    shared_ptr<Genre> genre = genres.member(genreId);
     return output_t<int>(genre->getSize());
 
 } /// V
@@ -246,7 +245,7 @@ output_t<int> DSpotify::getNumberOfGenreChanges(int songId) {
     }
 
     // Get the song from the hash table
-    shared_ptr<Song> song = *songs.member(songId);
+    shared_ptr<Song> song = songs.member(songId);
     // Compress the path to find the root song and then simply find Song again
     auto root = findSet(song);
     if (song == root) {

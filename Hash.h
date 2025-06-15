@@ -9,14 +9,14 @@
 using namespace std;
 
 // Constants for hash table management
-#define MIN_SIZE 13
+#define MIN_SIZE 11
 #define DEFAULT_LOAD_FACTOR 0.7
 #define REHASH_THRESHOLD 0.5
 #define SHRINK_THRESHOLD 0.25
 
 template<class T>
 struct Node {
-    shared_ptr<T> data;
+    T data;
     bool is_deleted;
 
     // Constructor - default, data will be null
@@ -25,7 +25,7 @@ struct Node {
 
 template<class T>
 struct hashingResult {
-    int index;
+    long index;
     StatusType status;
 };
 
@@ -99,9 +99,9 @@ public:
     }
 
     // Public operations
-    StatusType insert(const T &data);
-    StatusType remove(const T &data);
-    shared_ptr<T> member(int key) const;
+    StatusType insert(const T data);
+    StatusType remove(const T data);
+    T member(int key) const;
 
     // Copy constructor and assignment operator deleted for proper RAII
     Hash(const Hash &other) = delete;
@@ -129,8 +129,8 @@ hashingResult<T> Hash<T>::hash_insert(const T &data) {
         return {-1, StatusType::FAILURE};
     }
 
-    int key = getHashKey(data);
-    int k = 0;
+    long key = getHashKey(data);
+    long k = 0;
     int attempts = 0;
 
     // Double hashing algorithm:
@@ -138,16 +138,18 @@ hashingResult<T> Hash<T>::hash_insert(const T &data) {
     // r(x) = 1 + (x % (m - 5)) - ensures r(x) and m are relatively prime
     // hk(x) = (h(x) + k * r(x)) % m
     while (attempts < max_size) {
-        int index =
-                (key % max_size + k * (1 + (key % (max_size - 5)))) % max_size;
-
+        long h1 = key % max_size;
+        long h2 = 1 + (key % (max_size - 5)); // Ensure h2 is positive
+        if (h2 <= 0) h2 = 1;
+        long index = (h1 + k * h2) % max_size; // Ensure index is positive
+        if (index < 0) index += max_size;
         if (!table[index]->data || table[index]->is_deleted) {
             // Found an empty or deleted slot
             return {index, StatusType::SUCCESS};
         }
 
         // Check if element already exists and is not deleted
-        if (table[index]->data && *(table[index]->data) == data &&
+        if (table[index]->data && (table[index]->data) == data &&
             !table[index]->is_deleted) {
             return {-1, StatusType::FAILURE}; // Element already exists
         }
@@ -166,14 +168,16 @@ hashingResult<T> Hash<T>::hash_search(const T &data) {
         return {-1, StatusType::FAILURE};
     }
 
-    int key = getHashKey(data);
-    int k = 0;
+    long key = getHashKey(data);
+    long k = 0;
     int attempts = 0;
 
     while (attempts < max_size) {
-        int index =
-                (key % max_size + k * (1 + (key % (max_size - 5)))) % max_size;
-
+        long h1 = key % max_size;
+        long h2 = 1 + (key % (max_size - 5)); // Ensure h2 is positive
+        if (h2 <= 0) h2 = 1;
+        long index = (h1 + k * h2) % max_size; // Ensure index is positive
+        if (index < 0) index += max_size;
         // Found empty slot (not deleted) - element doesn't exist
         if (!table[index]->data && !table[index]->is_deleted) {
             return {-1, StatusType::FAILURE};
@@ -194,7 +198,7 @@ hashingResult<T> Hash<T>::hash_search(const T &data) {
 }
 
 template<class T>
-StatusType Hash<T>::insert(const T &data) {
+StatusType Hash<T>::insert(const T data) {
     // Check if we need to enlarge the table
     if (static_cast<double>(curr_size + delete_counter) / max_size >=
         DEFAULT_LOAD_FACTOR) {
@@ -213,13 +217,13 @@ StatusType Hash<T>::insert(const T &data) {
     // Insert the data
     if (!table[result.index]->data) {
         // If the slot is empty, insert normally
-        table[result.index]->data = make_shared<T>(data);
+        table[result.index]->data = data;
         table[result.index]->is_deleted = false;
         curr_size++;
         insert_counter++;
     } else {
         // Reuse the existing (deleted) slot
-        table[result.index]->data = make_shared<T>(data);
+        table[result.index]->data = data;
         table[result.index]->is_deleted = false;
         delete_counter--; // Decrement delete counter if we reused a deleted slot
     }
@@ -228,7 +232,7 @@ StatusType Hash<T>::insert(const T &data) {
 }
 
 template<class T>
-StatusType Hash<T>::remove(const T &data) {
+StatusType Hash<T>::remove(const T data) {
     // Check if we need to rehash the table
     if (static_cast<double>(delete_counter) / max_size >= REHASH_THRESHOLD) {
         rehash();
@@ -256,30 +260,33 @@ StatusType Hash<T>::remove(const T &data) {
 }
 
 template<class T>
-shared_ptr<T> Hash<T>::member(int key) const {
+T Hash<T>::member(int key) const {
     // Validate key
     if (key <= 0) {
         return nullptr;
     }
 
-    int k = 0;
-    int attempts = 0;
+    long k = 0;
+    long attempts = 0;
     while (attempts < max_size) {
-        int index = (key % max_size + k * (1 + (key % (max_size - 5)))) % max_size;
-
+        long h1 = key % max_size;
+        long h2 = 1 + (key % (max_size - 5)); // Ensure h2 is positive
+        if (h2 <= 0) h2 = 1;
+        long index = (h1 + k * h2) % max_size; // Ensure index is positive
+        if (index < 0) index += max_size;
         // Skip empty and deleted slots
         if (!table[index]) {
             return nullptr;
         }
 
-        if (!table[index]->data || table[index]->is_deleted) {
+        if (!(table[index]->data) || table[index]->is_deleted) {
             k++;
             attempts++;
             continue;
         }
 
         if (table[index]->data) {
-            int dataKey = getHashKey(*(table[index]->data));
+            int dataKey = getHashKey((table[index]->data));
             if (dataKey == key) {
                 return table[index]->data;
             }
@@ -323,7 +330,7 @@ StatusType Hash<T>::enlargeTable() {
     // Rehash the old table
     for (int i = 0; i < old_max_size; i++) {
         if (old_table[i]->data && !old_table[i]->is_deleted) {
-            insert(*(old_table[i]->data));
+            insert((old_table[i]->data));
         }
     }
 

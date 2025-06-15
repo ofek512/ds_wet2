@@ -2,93 +2,102 @@
 // Created by ofek5 on 2025-06-08.
 //
 
-#ifndef DS_WET2_GENRE_H
-#define DS_WET2_GENRE_H
+#ifndef DS_WET2_SONG_H
+#define DS_WET2_SONG_H
 
-#include "Song.h"
 #include <memory>
-#include <utility>
 
 using namespace std;
 
-// the genre clase will hold a pointer to the root of the union find, which is a song.
-// the genre class has genre id, size.
+class Genre; // forward declaration of class Genre
 
-/// forward declaration of class song
-
-class Song;
-
-class Genre {
-
+class Song {
 private:
-    shared_ptr<Song> root; // pointer to the root of the union find
-    int genre_id;
-    int size;
+    shared_ptr<Genre> genre;
+    shared_ptr<Song> father; // pointer to the father song in the union find
+    int song_id;
+    int genreChanges;
 
 public:
-    // Constructor
-    Genre(int id) : root(nullptr), genre_id(id), size(0) {}
+    // constructor
+    Song(int id) :genre(), father(), song_id(id), genreChanges(0)
+    {}
 
-    // Destructor
-    ~Genre() = default;
+    // destructor
+    ~Song() = default;
 
-    // Getters
+    // getters
+    int getSongId() const {
+        return song_id;
+    }
+
     int getID() const {
-        return genre_id;
+        return song_id;
     }
 
-    int getGenreId() const {
-        return genre_id;
+    int getGenreChanges() const {
+        return genreChanges;
     }
 
-    int getSize() const {
-        return size;
+    shared_ptr<Genre> getGenre() const {
+        return genre;
     }
 
-    shared_ptr<Song> getRoot() const {
-        return root;
+    shared_ptr<Song> getFather() const {
+        return father;
     }
 
-    // Increment and decrement size
-    void incrementSize() {
-        size++;
+    // setters
+    void setGenre(shared_ptr<Genre> new_genre) {
+        genre = new_genre;
     }
 
-    void decrementSize() {
-        if (size > 0) {
-            size--;
+    void setFather(shared_ptr<Song> new_father) {
+        father = new_father;
+    }
+
+    void incrementGenreChanges() {
+        genreChanges++;
+    }
+
+    void decrementGenreChanges() {
+        if (genreChanges > 0) {
+            genreChanges--;
         }
     }
 
-    // Setters
-    void setRoot(shared_ptr<Song> new_root) {
-        root = std::move(new_root); // check if necessary to use std::move
+    void addGenreChanges(int changes) {
+        genreChanges += changes;
     }
 
-    void setSize(int new_size) {
-        size = new_size;
+    void decreeseGenreChanges(int changes) {
+        genreChanges -= changes;
     }
+
+    void setGenreChanges(int changes) {
+        genreChanges = changes;
+    }
+
 
     // cast to int
     operator int() const {
-        return genre_id;
+        return song_id;
     }
 
-    // Comparison operators
-    bool operator==(const Genre &other) const {
-        return genre_id == other.genre_id;
+    // comparison operator
+    bool operator==(const Song &other) const {
+        return song_id == other.song_id;
     }
 
-    bool operator!=(const Genre &other) const {
+    bool operator!=(const Song &other) const {
         return !(*this == other);
     }
 
-    bool operator<(const Genre &other) const {
-        return genre_id < other.genre_id;
+    bool operator<(const Song &other) const {
+        return song_id < other.song_id;
     }
-
 
 };
 
 
-#endif // DS_WET2_GENRE_H
+#endif //DS_WET2_SONG_H

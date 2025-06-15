@@ -33,6 +33,10 @@ public:
     ~Genre() = default;
 
     // Getters
+    int getID() const {
+        return genre_id;
+    }
+
     int getGenreId() const {
         return genre_id;
     }

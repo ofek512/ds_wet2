@@ -31,6 +31,10 @@ public:
         return song_id;
     }
 
+    int getID() const {
+        return song_id;
+    }
+
     int getGenreChanges() const {
         return genreChanges;
     }

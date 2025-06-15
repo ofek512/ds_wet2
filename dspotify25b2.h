@@ -22,8 +22,8 @@ class DSpotify {
     // This class will act as a union find of groups(genres) of songs.
 private:
     // Hash table for genres and songs to allow fast access to the upside down tree of songs.
-    Hash<shared_ptr<Genre>> genres;
-    Hash<shared_ptr<Song>> songs;
+    HashTable<Genre> genres;
+    HashTable<Song> songs;
 
 public:
     // <DO-NOT-MODIFY> {

@@ -110,6 +110,15 @@ public:
     // Copy constructor and assignment operator deleted for proper RAII
     Hash(const Hash &other) = delete;
     Hash &operator=(const Hash &other) = delete;
+
+    shared_ptr<Node<T>> *getTable() const {
+        return table;
+    }
+
+    int getMaxSize() const {
+        return max_size;
+    }
+
 };
 
 // Helper method to extract hash key from data

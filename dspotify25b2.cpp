@@ -7,7 +7,24 @@
 DSpotify::DSpotify() : genres(), songs() {}
 
 DSpotify::~DSpotify() {
-    // probably need to do nothing here since smart pointers
+    // Break circular references to allow proper cleanup
+    int songs_max_size = songs.getMaxSize();
+    int genres_max_size = genres.getMaxSize();
+    // Get all songs from the hash table
+    for (int i = 0; i < songs_max_size; ++i) {
+        if (songs.getTable()[i]->data && !songs.getTable()[i]->is_deleted) {
+            // Clear the references to break cycles
+            songs.getTable()[i]->data->setFather(nullptr);
+            songs.getTable()[i]->data->setGenre(nullptr);
+        }
+    }
+
+    // Clear all genre roots
+    for (int i = 0; i < genres_max_size; ++i) {
+        if (genres.getTable()[i]->data && !genres.getTable()[i]->is_deleted) {
+            genres.getTable()[i]->data->setRoot(nullptr);
+        }
+    }
 }
 
 StatusType DSpotify::addGenre(int genreId) {

@@ -70,11 +70,12 @@ private:
     StatusType shrinkTable(); /// shrink table in the case of load factor < 0.3
     StatusType rehash();
     hashingResult<T> hash_insert(const T &data); /// V
-    hashingResult<T> hash_search(const int &key) const; /// V
+    hashingResult<T> hash_search(const int &data) const; /// V
 public:
     StatusType insert(const T &data);
-    StatusType remove(const T &data); /// V
+    StatusType remove(const int &key); /// V
     shared_ptr<T> member(int key) const; /// V
+    int getMaxSize();
     int getHashKey(const T &data) const; /// Helper method to extract hash key from data
 
     Hash() : curr_size(0), insert_counter(0), prime_index(0),
@@ -88,6 +89,9 @@ public:
     ~Hash() {
         delete[] table;
         table = nullptr;
+    }
+    shared_ptr<Node<T>> *getTable() const {
+        return table;
     }
 
 };
@@ -124,7 +128,6 @@ StatusType Hash<T>::enlargeTable() {
         int availableNodes = (insert_counter - delete_counter);
         while(attempts < availableNodes && i < new_max_size) {
             if (old_table[i]->data) {
-                int key = getHashKey(*(old_table[i]->data));
                 shared_ptr<Node<T>> newNode = old_table[i];
                 while (newNode && newNode->data) {
                     if (!(newNode->is_deleted)) {
@@ -168,7 +171,6 @@ StatusType Hash<T>::shrinkTable() {
         int availableNodes = (insert_counter - delete_counter);
         while(attempts < availableNodes && i < new_max_size) {
             if (old_table[i]->data) {
-                int key = getHashKey(*(old_table[i]->data));
                 shared_ptr<Node<T>> newNode = old_table[i];
                 while (newNode && newNode->data) {
                     if (!(newNode->is_deleted)) {
@@ -208,7 +210,6 @@ StatusType Hash<T>::rehash(){
         int availableNodes = (insert_counter - delete_counter);
         while(attempts < availableNodes && i < max_size) {
             if (old_table[i]->data) {
-                int key = getHashKey(*(old_table[i]->data));
                 shared_ptr<Node<T>> newNode = old_table[i];
                 while (newNode && newNode->data) {
                     if (!(newNode->is_deleted)) {
@@ -241,7 +242,6 @@ hashingResult<T> Hash<T>::hash_insert(const T &data) {
     // find index, make sure there is no collision, if there is, increment k until there is no collision.
     int key = getHashKey(data);
     int index = key % max_size;
-    int k = 0;
     //empty cell in the table
     if(!table[index]->data){
         table[index] = make_shared<Node<T>>();
@@ -271,9 +271,8 @@ hashingResult<T> Hash<T>::hash_search(const int &data) const {
         return {-1, StatusType::FAILURE};
     }
     // find index, make sure there is no collision, if there is, increment k until there is no collision.
-    int key = getHashKey(data);
+    int key = data;
     int index = key % max_size;
-    int k = 0;
     //empty cell in the table
     if(!table[index]->data){
         return {-1, StatusType::FAILURE};
@@ -294,13 +293,11 @@ shared_ptr<T> Hash<T>::member(int key) const {
     if (key < 0 || key >= max_size) {
         return nullptr; // invalid key
     }
-    int k = 0;
-    int iterations = 0;
-    int index = getHashKey(key);
+    int index = key% max_size;
     shared_ptr<Node<T>> newNode = table[index];
     while (newNode && newNode->data) {
         if(getHashKey(*(newNode->data)) == key){
-            return newNode->data;
+            return newNode->data; // found the data
         }
         newNode = newNode->next;
     }
@@ -308,23 +305,25 @@ shared_ptr<T> Hash<T>::member(int key) const {
 }
 
 template<class T>
-StatusType Hash<T>::remove(const T &data){
+StatusType Hash<T>::remove(const int &key){
     // check if we need to resize the table
+    if(key < 0 || key >= max_size) {
+        return StatusType::INVALID_INPUT; // invalid data
+    }
     StatusType resizeStatus = resizeTable();
     if(resizeStatus != StatusType::SUCCESS) {
         return resizeStatus; // return the status of resizing
     }
-    if(!data) {
+    if(!key) {
         return StatusType::FAILURE; // invalid data
     } else{
-        hashingResult<T> nodeFound = hash_search(data);
+        hashingResult<T> nodeFound = hash_search(key);
         if(nodeFound.status == StatusType::FAILURE) {
             return StatusType::FAILURE;
         }
         else{
 
             int index = nodeFound.index;
-            int key = getHashKey(data);
             shared_ptr<Node<T>> toDelete = table[index];
             while (toDelete && toDelete->data) {
                 if(getHashKey(*(toDelete->data)) == key){
@@ -360,5 +359,12 @@ int Hash<T>::getHashKey(const T &data) const {
     // Use static_assert to ensure T can be converted to int at compile time
     return (int)*data;
 }
+
+template<class T>
+int Hash<T>::getMaxSize(){
+    return max_size;
+}
+
+
 
 

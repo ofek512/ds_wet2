@@ -14,13 +14,14 @@
 #define DSPOTIFY25SPRING_WET2_H_
 
 #include "wet2util.h"
+#include "Genre.h"
+#include "Song.h"
+#include "Hash.h"
 
 class DSpotify {
 private:
-    //
-    // Here you may add anything you want
-    //
-    
+    Hash<shared_ptr<Genre>> genres;
+    Hash<shared_ptr<Song>> songs;
 public:
     // <DO-NOT-MODIFY> {
     DSpotify();
@@ -39,6 +40,8 @@ public:
 
     output_t<int> getNumberOfGenreChanges(int songId);
     // } </DO-NOT-MODIFY>
+    shared_ptr<Song> findSet(shared_ptr<Song> song);
+
 };
 
 #endif // DSPOTIFY25SPRING_WET2_H_

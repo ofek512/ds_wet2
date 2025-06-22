@@ -86,10 +86,8 @@ StatusType DSpotify::mergeGenres(int genreId1, int genreId2, int genreId3) {
     shared_ptr<Genre> genre1 = *genres.member(genreId1);
     shared_ptr<Genre> genre2 = *genres.member(genreId2);
     shared_ptr<Genre> genre3 = make_shared<Genre>(genreId3);
-
     shared_ptr<Song> root1 = genre1->getRoot();
     shared_ptr<Song> root2 = genre2->getRoot();
-
     //both genres are empty
     if (genre1->getSize() == 0 && genre2->getSize() == 0) {
         genre3->setRoot(nullptr);
@@ -99,46 +97,24 @@ StatusType DSpotify::mergeGenres(int genreId1, int genreId2, int genreId3) {
     } else if (genre1->getSize() == 0) {
         genre3->setRoot(root2);;
         root2->setGenre(genre3);
-        if (root2->getGenreChanges() == 0) {
-            root2->setGenreChanges(2);
-        } else {
-            root2->incrementGenreChanges();
-        }
+        root2->incrementGenreChanges();
     } else if (genre2->getSize() == 0) {
         genre3->setRoot(root1);;
         root1->setGenre(genre3);
-        if (root1->getGenreChanges() == 0) {
-            root1->setGenreChanges(2);
-        } else {
-            root1->incrementGenreChanges();
-        }
+        root1->incrementGenreChanges();
     } else {
         if (genre1->getSize() >= genre2->getSize()) {
             root2->setFather(root1);
-            root1->incrementGenreChanges();
             genre3->setRoot(root1);
             root1->setGenre(genre3);
-
-            if (root1->getGenreChanges() == 0) {
-                root1->setGenreChanges(2);
-                root2->decreeseGenreChanges(2);
-            } else {
-                root2->decreeseGenreChanges(root1->getGenreChanges());
-                root1->incrementGenreChanges();
-            }
+            root2->decreeseGenreChanges(root1->getGenreChanges());
+            root1->incrementGenreChanges();
         } else {
             root1->setFather(root2);
-            root2->incrementGenreChanges();
             genre3->setRoot(root2);
             root2->setGenre(genre3);
-
-            if (root2->getGenreChanges() == 0) {
-                root2->setGenreChanges(2);
-                root1->decreeseGenreChanges(2);
-            } else {
                 root1->decreeseGenreChanges(root2->getGenreChanges());
                 root2->incrementGenreChanges();
-            }
         }
     }
     genres.insert(genre3);

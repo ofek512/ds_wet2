@@ -20,7 +20,7 @@ private:
 
 public:
     // constructor
-    Song(int id) :genre(), father(), song_id(id), genreChanges(0)
+    Song(int id) :genre(), father(), song_id(id), genreChanges(1)
     {}
 
     // destructor

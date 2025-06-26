@@ -87,7 +87,7 @@ public:
     }
 
     ~Hash() {
-        for(int i = 0; i < max_size; ++i) {
+        for(int i = 0; i < max_size; i++) {
             shared_ptr<Node<T>> currentNode = table[i];
             while (currentNode) {
                 shared_ptr<Node<T>> prevNode = currentNode;

@@ -1,36 +1,12 @@
 #include<memory>
 #include "wet2util.h"
+#include "LinkedList.h"
 
 using namespace std;
 
-#define MIN_SIZE 13
+// Constants for load factor thresholds
 #define LOAD_FACTOR 0.7
 #define SHRINK_THRESHOLD 0.3
-#define REHASH_THRESHOLD 0.5
-
-template<class T>
-struct Node {
-    int id;
-    shared_ptr<T> data;
-    shared_ptr<Node> next;
-    bool is_deleted;
-
-    //constructor default, data will be null
-    Node() : data(nullptr), is_deleted(false){}
-    Node(int newId) : id(newId), data(nullptr), is_deleted(false) {}
-    int getId() const {
-        return id;
-    }
-    void setId(int newId){
-        id = newId;
-    }
-};
-
-template<class T>
-struct hashingResult {
-    int index;
-    StatusType status;
-};
 
 const int TABLE_OF_PRIMES[] = {
         11,         // start
@@ -66,298 +42,172 @@ const int TABLE_OF_PRIMES[] = {
 template<class T>
 class Hash {
 private:
-    int curr_size;
-    int insert_counter; // counts the number of insertions
+    int bucket_count; // the current number of buckets (i.e., beginnings of linked lists) in the hash table
+    int element_count; // counts the number of occupied nodes
     int prime_index; // saves the current index in TABLE_OF_PRIMES
-    int max_size;
-    int delete_counter;
-    shared_ptr<Node<T>> *table;
-    StatusType resizeTable(); /// adjust the table size according to the current load factor
-    StatusType enlargeTable(); /// enlarge table in the case of load factor > 0.7
-    StatusType shrinkTable(); /// shrink table in the case of load factor < 0.3
-    StatusType rehash();
-    hashingResult<T> hash_insert(int id, std::shared_ptr<T> data); /// V
-    hashingResult<T> hash_search(int id) const; /// V
-public:
-    StatusType insert(int id, std::shared_ptr<T> data);
-    StatusType remove(int key); /// V
-    shared_ptr<T> member(int key) const; /// V
-    int getMaxSize();
+    int max_bucket_count; // maximum number of elements
+    std::unique_ptr<std::unique_ptr<LinkedList<T>>[]> table;
 
-    Hash() : curr_size(0), insert_counter(0), prime_index(0),
-             max_size(MIN_SIZE), delete_counter(0) {
-        table = new shared_ptr<Node<T>>[max_size];
-        for (int i = 0; i < max_size; ++i) {
-            table[i] = make_shared<Node<T>>();
+    //START: resizing functions
+    bool resizeTable(); /// adjust the table size according to the current load factor
+    bool dynamicSize(int newSize); /// enlarge table in the case of load factor > 0.7
+    //END: resizing functions
+
+    //hash function
+    int hashFunc(int key, int bucketCount) const; /// V
+
+public:
+    Hash() : bucket_count(0), element_count(0), prime_index(0), max_bucket_count(TABLE_OF_PRIMES[0]) {
+        table = std::make_unique<std::unique_ptr<LinkedList<T>>[]>(max_bucket_count);
+        for (int i = 0; i < max_bucket_count; i++) {
+            table[i] = unique_ptr<LinkedList<T>>();
         }
     }
 
-    ~Hash() {
-        delete[] table;
-        table = nullptr;
-    }
-    shared_ptr<Node<T>> *getTable() const {
-        return table;
-    }
+    ~Hash() = default;
+
+    //START: element-related functions
+    bool insert(int id, std::shared_ptr<T> data);
+    shared_ptr<T> search(int id) const;
+    bool remove(int id);
+    //END: element-related functions
+    //START: getters
+    int getCurrentBucketCount() const; /// V
+    LinkedList<T>* getBucket(int index) const;
+    int getMaxSize();
+    //END: getters
 
 };
 
+
+
+
+//START: resizing functions
 template<class T>
-StatusType Hash<T>::resizeTable() {
-    float overloadFactor = curr_size / (float)max_size;
-    // check if we need to enlarge or shrink the table
-    if (overloadFactor > LOAD_FACTOR) {
-        return enlargeTable();
-    } else if (overloadFactor < SHRINK_THRESHOLD) {
-        return shrinkTable();
+bool Hash<T>::resizeTable() {
+    if(element_count > LOAD_FACTOR * max_bucket_count) {
+        if(prime_index + 1 < sizeof(TABLE_OF_PRIMES) / sizeof(TABLE_OF_PRIMES[0])) {
+            prime_index++;
+            dynamicSize(TABLE_OF_PRIMES[prime_index]);
+
+        } else{
+            return true;
+        }
+    } else if (element_count < SHRINK_THRESHOLD * max_bucket_count) {
+        if (prime_index > 0) {
+            prime_index--; // Cannot shrink below the first prime size
+            dynamicSize(TABLE_OF_PRIMES[prime_index]);
+
+        } else{
+            return true;
+        }
     }
-    return StatusType::SUCCESS; // no resizing needed
+    return true; // No resizing needed
 }
 
 template<class T>
-StatusType Hash<T>::enlargeTable() {
-    int new_max_size = TABLE_OF_PRIMES[prime_index + 1]; // update max size
-    auto *newTable = new shared_ptr<Node<T>>[new_max_size];
-    if (!newTable) {
-        return StatusType::ALLOCATION_ERROR; // memory allocation failed
+bool Hash<T>::dynamicSize(int newSize) {
+    auto newTable = std::make_unique<std::unique_ptr<LinkedList<T>>[]>(newSize);
+    for (int i = 0; i < newSize; i++) {
+        newTable[i] = make_unique<LinkedList<T>>();
     }
-    else{
-        //initialize a new table
-        for(int i = 0; i < new_max_size; ++i) {
-            newTable[i] = make_shared<Node<T>>();
-        }
-        shared_ptr<Node<T>> *old_table = table;
-        table = newTable; // point table to the new table
-        // rehashes all elements from the old table to the new table
-        int attempts = 0;
-        int i = 0;
-        int availableNodes = (insert_counter - delete_counter);
-        while(attempts < availableNodes && i < new_max_size) {
-            if (old_table[i]->data) {
-                shared_ptr<Node<T>> newNode = old_table[i];
-                while (newNode && newNode->data) {
-                    if (!(newNode->is_deleted)) {
-                        hash_insert(newNode->getId(),newNode->data);
-                        attempts++;// insert the data into the new table
-                    }
-                    newNode = newNode->next;
+    auto oldTable = std::move(table);
+    int oldSize = max_bucket_count;
+    table = std::move(newTable);
+    element_count = 0;
+    bucket_count = 0;
+    // Rehashing the elements
+    for (int i = 0; i < oldSize; i++) {
+        if (oldTable[i]) {
+            auto curr = oldTable[i]->getStart();
+            while (curr) {
+                auto nodeData = curr->getData();
+                int node_id = curr->getID();
+                if(nodeData) {
+                    int newIdx = hashFunc(node_id, newSize);
+                    table[newIdx]->insert(nodeData, node_id);
+                    element_count++;
                 }
+                curr = curr->getNext();
+
             }
-            i++;
         }
-        curr_size = attempts;
-        delete_counter = 0;
-        prime_index++; // move to the next prime index
-        max_size = new_max_size;
-        delete[] old_table; // free the old table memory
-        return StatusType::SUCCESS; // resizing successful
     }
+    max_bucket_count = newSize;
+    return true;
+}
+
+//END: resizing functions
+
+//START: element-related functions
+template<class T>
+bool Hash<T>::insert(int id, std::shared_ptr<T> data) {
+    // resizing the table if necessary
+    element_count++;
+    resizeTable();
+    //insertion into the table
+    int idx = hashFunc(id, max_bucket_count);
+    if (!table[idx]) {
+        table[idx] = std::make_unique<LinkedList<T>>();
+        bucket_count++;
+    }
+    table[idx]->insert(data, id);
+    return true; // Insertion successful
 }
 
 template<class T>
-StatusType Hash<T>::shrinkTable() {
-    if (max_size <= MIN_SIZE || prime_index <= 0) {
-        return StatusType::FAILURE; // Cannot shrink below MIN_SIZE
-    }
-    int new_max_size = TABLE_OF_PRIMES[prime_index - 1]; // update max size
-    auto *newTable = new shared_ptr<Node<T>>[new_max_size];
-    if (!newTable) {
-        return StatusType::ALLOCATION_ERROR; // memory allocation failed
-    }
-    else{
-        //initialize a new table
-        for(int i = 0; i < new_max_size; ++i) {
-            newTable[i] = make_shared<Node<T>>();
-        }
-        shared_ptr<Node<T>> *old_table = table;
-        table = newTable; // point table to the new table
-        // rehashes all elements from the old table to the new table
-        int attempts = 0;
-        int i = 0;
-        int availableNodes = (insert_counter - delete_counter);
-        while(attempts < availableNodes && i < new_max_size) {
-            if (old_table[i]->data) {
-                shared_ptr<Node<T>> newNode = old_table[i];
-                while (newNode && newNode->data) {
-                    if (!(newNode->is_deleted)) {
-                        hash_insert(newNode->getId(), newNode->data);
-                        attempts++;// insert the data into the new table
-                    }
-                    newNode = newNode->next;
-                }
-            }
-            i++;
-        }
-        curr_size = attempts;
-        delete_counter = 0;
-        prime_index--; // move to the next prime index
-        max_size = new_max_size;
-        delete[] old_table; // free the old table memory
-        return StatusType::SUCCESS; // resizing successful
-    }
+shared_ptr<T> Hash<T>::search(int id) const {
+    int idx = hashFunc(id, max_bucket_count);
+    if (!table[idx]) return nullptr;  // Fix: Avoid dereferencing null
+    return table[idx]->getValue(id);
 }
+
 
 template<class T>
-StatusType Hash<T>::rehash(){
-    auto *newTable = new shared_ptr<Node<T>>[max_size];
-    if (!newTable) {
-        return StatusType::ALLOCATION_ERROR; // memory allocation failed
-    }
-    else{
-        //initialize a new table
-        for(int i = 0; i < max_size; ++i) {
-            newTable[i] = make_shared<Node<T>>();
+bool Hash<T>::remove(int id) {
+    int idx = hashFunc(id, max_bucket_count);
+    if (!table[idx]) return false;  // Fix: Avoid null
+    if (table[idx]->search(id)) {
+        table[idx]->remove(id);
+        element_count--;
+        resizeTable(); // Check if resizing is needed after deletion
+        if(!(table[idx]->getSize())){
+            bucket_count--;
         }
-        shared_ptr<Node<T>> *old_table = table;
-        table = newTable; // point table to the new table
-        // rehashes all elements from the old table to the new table
-        int attempts = 0;
-        int i = 0;
-        int availableNodes = (insert_counter - delete_counter);
-        while(attempts < availableNodes && i < max_size) {
-            if (old_table[i]->data) {
-                shared_ptr<Node<T>> newNode = old_table[i];
-                while (newNode && newNode->data) {
-                    if (!(newNode->is_deleted)) {
-                        hash_insert(newNode->getId(), newNode->data);
-                        attempts++;// insert the data into the new table
-                    }
-                    newNode = newNode->next;
-                }
-            }
-            i++;
-        }
-        curr_size = attempts;
-        delete_counter = 0;
-        delete[] old_table; // free the old table memory
-        return StatusType::SUCCESS; // resizing successful
+        return true;
     }
+    return false;
 }
 
-template<class T>
-hashingResult<T> Hash<T>::hash_insert(int id, std::shared_ptr<T> data) {
-    //h(x) = x % m
-    //r(x) = 1 + (x % (m - 5 ))
-    //hk(x) = (h(x) + k * r(x)) % m
+//END: element-related functions
 
-    // check valid input
-    if (!data) {
-        //return hashing result with index -1 and failure status
-        return {-1, StatusType::FAILURE};
-    }
-    if(id < 0) {
-        return {-1, StatusType::INVALID_INPUT}; // invalid data
-    }
-    // find index, make sure there is no collision, if there is, increment k until there is no collision.
-    int key = id;
-    int index = key % max_size;
-    //empty cell in the table
-    if(!table[index]->data){
-        table[index] = make_shared<Node<T>>(id);
-        table[index]->setId(id);
-        table[index]->data = data;
-        insert_counter++;
-        curr_size++;
-        return {index, StatusType::SUCCESS};
-    } else {
-        //add a chain
-        shared_ptr<Node<T>> newNode = table[index];
-        while (newNode && newNode->data) {
-            newNode = newNode->next;
-        }
-        newNode->next = make_shared<Node<T>>(id);
-        newNode->next->data = data;
-        newNode->next->setId(id);
-        insert_counter++;
-        curr_size++;
-        return {index, StatusType::SUCCESS};
-    }
-}
-
-template<class T>
-hashingResult<T> Hash<T>::hash_search(int id) const {
-    // check valid input
-    if (id < 0) {
-        //return hashing result with index -1 and failure status
-        return {-1, StatusType::FAILURE};
-    }
-    // find index, make sure there is no collision, if there is, increment k until there is no collision.
-    int key = id;
-    int index = id % max_size;
-    //empty cell in the table
-    if(!table[index]->data){
-        return {-1, StatusType::FAILURE};
-    } else {
-        shared_ptr<Node<T>> newNode = table[index];
-        while (newNode && newNode->data) {
-            if(newNode->getId() == key && !newNode->is_deleted){
-                return {index, StatusType::SUCCESS};
-            }
-            newNode = newNode->next;
-        }
-        return {-1, StatusType::FAILURE};
-    }
-}
-
-template<class T>
-shared_ptr<T> Hash<T>::member(int key) const {
-    if (key < 0) {
-        return nullptr; // invalid key
-    }
-    int index = key % max_size;
-    shared_ptr<Node<T>> newNode = table[index];
-    while (newNode && newNode->data) {
-        if(newNode->getId() == key && !newNode->is_deleted){
-            return newNode->data; // found the data
-        }
-        newNode = newNode->next;
-    }
-    return nullptr; // Not found
-}
-
-template<class T>
-StatusType Hash<T>::remove(int key) {
-    // check if we need to resize the table
-
-    StatusType resizeStatus = resizeTable();
-    if (resizeStatus != StatusType::SUCCESS) {
-        return resizeStatus; // return the status of resizing
-    }
-    hashingResult<T> nodeFound = hash_search(key);
-    if (nodeFound.status == StatusType::FAILURE) {
-        return StatusType::FAILURE;
-    } else {
-
-        int index = nodeFound.index;
-        shared_ptr<Node<T>> toDelete = table[index];
-        while (toDelete && toDelete->data) {
-            if (toDelete->getId() == key && !toDelete->is_deleted) {
-                toDelete->is_deleted = true; // mark as deleted
-                curr_size--;
-                delete_counter++;
-                return StatusType::SUCCESS;
-            }
-            toDelete = toDelete->next;
-        }
-    }
-    return StatusType::FAILURE; // Not found
-}
-
-template<class T>
-StatusType Hash<T>::insert(int id, std::shared_ptr<T> data) {
-    // check if we need to resize the table
-    StatusType resizeStatus = resizeTable();
-    if(resizeStatus != StatusType::SUCCESS) {
-        return resizeStatus; // return the status of resizing
-    }
-    hashingResult<T> result = hash_insert(id, data);
-    return result.status;
-}
-
+//START: getters
 
 template<class T>
 int Hash<T>::getMaxSize(){
-    return max_size;
+    return max_bucket_count;
+}
+
+template<class T>
+int Hash<T>::getCurrentBucketCount() const {
+    return bucket_count;
+}
+
+template<class T>
+LinkedList<T>* Hash<T>::getBucket(int index) const {
+    if (index >= 0 && index < max_bucket_count) {
+        return table[index].get();
+    }
+    return nullptr;
+}
+
+
+//END: getters
+
+//Hash Function
+template<class T>
+int Hash<T>::hashFunc(int key, int bucketCount) const {
+    return (bucketCount > 0) ? (key % bucketCount) : 0;
 }
 
 

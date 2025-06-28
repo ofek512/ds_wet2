@@ -479,7 +479,7 @@ output_t<int> DSpotify::getNumberOfSongsByGenre(int genreId) {
     // Get the genre from the hash table
 
     shared_ptr<Genre> genre = genres.search(genreId);
-    
+
     return output_t<int>(genre->getSize());
 
 

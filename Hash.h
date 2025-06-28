@@ -77,7 +77,7 @@ private:
     StatusType shrinkTable(); /// shrink table in the case of load factor < 0.3
     StatusType rehash();
     hashingResult<T> hash_insert(int id, std::shared_ptr<T> data); /// V
-    hashingResult<T> hash_search(int data) const; /// V
+    hashingResult<T> hash_search(int id) const; /// V
 public:
     StatusType insert(int id, std::shared_ptr<T> data);
     StatusType remove(int key); /// V
@@ -245,12 +245,16 @@ hashingResult<T> Hash<T>::hash_insert(int id, std::shared_ptr<T> data) {
         //return hashing result with index -1 and failure status
         return {-1, StatusType::FAILURE};
     }
+    if(id < 0) {
+        return {-1, StatusType::INVALID_INPUT}; // invalid data
+    }
     // find index, make sure there is no collision, if there is, increment k until there is no collision.
     int key = id;
     int index = key % max_size;
     //empty cell in the table
     if(!table[index]->data){
         table[index] = make_shared<Node<T>>(id);
+        table[index]->setId(id);
         table[index]->data = data;
         insert_counter++;
         curr_size++;
@@ -271,22 +275,22 @@ hashingResult<T> Hash<T>::hash_insert(int id, std::shared_ptr<T> data) {
 }
 
 template<class T>
-hashingResult<T> Hash<T>::hash_search(int data) const {
+hashingResult<T> Hash<T>::hash_search(int id) const {
     // check valid input
-    if (!data) {
+    if (id < 0) {
         //return hashing result with index -1 and failure status
         return {-1, StatusType::FAILURE};
     }
     // find index, make sure there is no collision, if there is, increment k until there is no collision.
-    int key = data;
-    int index = key % max_size;
+    int key = id;
+    int index = id % max_size;
     //empty cell in the table
     if(!table[index]->data){
         return {-1, StatusType::FAILURE};
     } else {
         shared_ptr<Node<T>> newNode = table[index];
         while (newNode && newNode->data) {
-            if(newNode->getId() == key){
+            if(newNode->getId() == key && !newNode->is_deleted){
                 return {index, StatusType::SUCCESS};
             }
             newNode = newNode->next;
@@ -297,13 +301,13 @@ hashingResult<T> Hash<T>::hash_search(int data) const {
 
 template<class T>
 shared_ptr<T> Hash<T>::member(int key) const {
-    if (key < 0 || key >= max_size) {
+    if (key < 0) {
         return nullptr; // invalid key
     }
     int index = key % max_size;
     shared_ptr<Node<T>> newNode = table[index];
     while (newNode && newNode->data) {
-        if(newNode->getId() == key){
+        if(newNode->getId() == key && !newNode->is_deleted){
             return newNode->data; // found the data
         }
         newNode = newNode->next;
@@ -312,41 +316,31 @@ shared_ptr<T> Hash<T>::member(int key) const {
 }
 
 template<class T>
-StatusType Hash<T>::remove(int key){
+StatusType Hash<T>::remove(int key) {
     // check if we need to resize the table
-    if(key < 0 || key >= max_size) {
-        return StatusType::INVALID_INPUT; // invalid data
-    }
+
     StatusType resizeStatus = resizeTable();
-    if(resizeStatus != StatusType::SUCCESS) {
+    if (resizeStatus != StatusType::SUCCESS) {
         return resizeStatus; // return the status of resizing
     }
-    if(!key) {
-        return StatusType::FAILURE; // invalid data
-    } else{
-        hashingResult<T> nodeFound = hash_search(key);
-        if(nodeFound.status == StatusType::FAILURE) {
-            return StatusType::FAILURE;
-        }
-        else{
+    hashingResult<T> nodeFound = hash_search(key);
+    if (nodeFound.status == StatusType::FAILURE) {
+        return StatusType::FAILURE;
+    } else {
 
-            int index = nodeFound.index;
-            shared_ptr<Node<T>> toDelete = table[index];
-            while (toDelete && toDelete->data) {
-                if(toDelete->getId() == key){
-                    if(toDelete->is_deleted){
-                        return StatusType::FAILURE; // already deleted
-                    }
-                    toDelete->is_deleted = true; // mark as deleted
-                    curr_size--;
-                    delete_counter++;
-                    return StatusType::SUCCESS;
-                }
-                toDelete = toDelete->next;
+        int index = nodeFound.index;
+        shared_ptr<Node<T>> toDelete = table[index];
+        while (toDelete && toDelete->data) {
+            if (toDelete->getId() == key && !toDelete->is_deleted) {
+                toDelete->is_deleted = true; // mark as deleted
+                curr_size--;
+                delete_counter++;
+                return StatusType::SUCCESS;
             }
+            toDelete = toDelete->next;
         }
-        return StatusType::FAILURE; // Not found
     }
+    return StatusType::FAILURE; // Not found
 }
 
 template<class T>

@@ -27,6 +27,7 @@ private:
 
 public:
     // Constructor
+    Genre() : root(nullptr), genre_id(-1), size(0) {}
     Genre(int id) : root(nullptr), genre_id(id), size(0) {}
 
     // Destructor

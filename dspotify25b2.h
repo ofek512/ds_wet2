@@ -46,8 +46,8 @@ private:
 
     // Hash table for genres and songs to allow fast access to the upside down tree of songs.
 
-    HashMap<Genre> genres;
-    HashMap<Song> songs;
+    Hash<Genre> genres;
+    Hash<Song> songs;
 
 
 public:
